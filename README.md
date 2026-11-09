@@ -25,7 +25,7 @@ Point `--data` at the official `ATBench/test.json` or `ATBench500/test.json`. Se
   --guard-model models/agentdog-0.8b --output results/atbench-smoke.jsonl
 ```
 
-The scorer records label, prediction and latency per case, with accuracy, F1, recall and FPR in the summary. Gold labels and reasons stay in the scoring process. [Official dataset](https://huggingface.co/datasets/AI45Research/ATBench)
+The scorer records label, prediction and latency per case, with accuracy, F1, recall and FPR in the summary. Gold labels and reasons stay in the scoring process. Run metadata captures the code and model revisions, library versions, device, and precision. Keep the inference configuration fixed when comparing scores across methods. [Official dataset](https://huggingface.co/datasets/AI45Research/ATBench)
 
 ## AgentDojo
 

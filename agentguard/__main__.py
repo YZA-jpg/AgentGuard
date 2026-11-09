@@ -1,8 +1,10 @@
 import argparse
 import os
+import platform
 import subprocess
 import sys
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from .atbench import read_rows, run_atbench
@@ -22,6 +24,16 @@ def git_revision(root: Path) -> str | None:
     except FileNotFoundError:
         return None
     return head.stdout.strip() if head.returncode == 0 else None
+
+
+def runtime_versions() -> dict[str, str]:
+    versions = {"python": platform.python_version()}
+    for package in ("torch", "transformers", "openai", "agentdojo"):
+        try:
+            versions[package] = version(package)
+        except PackageNotFoundError:
+            continue
+    return versions
 
 
 def main() -> int:
@@ -58,6 +70,7 @@ def main() -> int:
         "benchmark": args.benchmark,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "agentguard_commit": git_revision(Path(__file__).resolve().parents[1]),
+        "runtime_versions": runtime_versions(),
         "configuration": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
     }
     if args.output.exists():
@@ -95,6 +108,8 @@ def main() -> int:
                            if args.method == "agentdog" else (None, None))
 
     metadata["guard_revision"] = revision
+    if guard is not None:
+        metadata["guard_dtype"] = "float32" if args.device == "cpu" else "bfloat16"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8", newline="\n") as output:
         write_record(output, metadata)

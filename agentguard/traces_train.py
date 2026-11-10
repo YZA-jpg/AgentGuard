@@ -17,9 +17,6 @@ from .traces import (
     use_upstream,
 )
 
-SMOKE_REVISION = "c1899de289a04d12100db370d81485cdf75e47ca"
-
-
 def train(args) -> dict:
     split = read_split(args.split_manifest)
     data_sha, rows = read_rows(args.data, "ATBench", [], None)
@@ -38,9 +35,9 @@ def train(args) -> dict:
     directory = args.out_dir.resolve()
     directory.mkdir(parents=True, exist_ok=False)
     observer = str(args.observer.resolve())
-    revision = SMOKE_REVISION if args.smoke else OBSERVER_REVISION
-    layer = 24 if args.smoke else OBSERVER_LAYER
-    encoder = ActionEndEncoder(observer, revision, layer, args.device)
+    encoder = ActionEndEncoder(observer, OBSERVER_REVISION, OBSERVER_LAYER, args.device)
+    if encoder.model.config.hidden_size != 2560:
+        raise ValueError("TRACES expects the Qwen3-4B observer")
     dimension = encoder.model.config.hidden_size
     train_ids, calibration_ids = set(), set()
     examples = {"train": train_ids, "calibration": calibration_ids}
@@ -49,7 +46,7 @@ def train(args) -> dict:
     config.TABLE_PATH = str(directory / "action_repr.pkl")
     config.TRAJ_JSONL_PATH = str(directory / "train_calibration_labels.jsonl")
     config.OUT_DIR = str(directory)
-    config.LAYERS = [layer]
+    config.LAYERS = [OBSERVER_LAYER]
     config.DEVICE = args.device
     if args.smoke:
         config.EPOCHS_STAGE_A = config.EPOCHS_STAGE_B = 1
@@ -75,7 +72,7 @@ def train(args) -> dict:
                 "event_idx": index,
                 "event_type": "agent_action",
                 "event_order_among_decisions": order,
-                "layer": layer,
+                "layer": OBSERVER_LAYER,
                 "rep": vector,
             } for order, (index, vector) in enumerate(encoded))
             extracted = len(train_ids) + len(calibration_ids)
@@ -99,8 +96,8 @@ def train(args) -> dict:
         "variant": "TRACES-ATBench-adapter",
         "upstream_revision": UPSTREAM_REVISION,
         "observer": observer,
-        "observer_revision": revision,
-        "layer": layer,
+        "observer_revision": OBSERVER_REVISION,
+        "layer": OBSERVER_LAYER,
         "threshold": threshold,
         "calibration_f1": calibration_f1,
         "dataset_sha256": data_sha,
@@ -122,7 +119,7 @@ def main() -> None:
     parser.add_argument("--observer", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--smoke", action="store_true", help="use Qwen3-0.6B and one epoch on 8/4 trajectories")
+    parser.add_argument("--smoke", action="store_true", help="train for one epoch on 8 train and 4 calibration trajectories")
     print(json_text(train(parser.parse_args())))
 
 

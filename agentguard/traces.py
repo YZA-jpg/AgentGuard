@@ -21,6 +21,8 @@ def use_upstream(path: Path) -> None:
     changes = subprocess.check_output([*git, "status", "--porcelain", "--untracked-files=no"], text=True)
     if revision != UPSTREAM_REVISION or changes:
         raise ValueError(f"Expected an unmodified TRACES checkout at {UPSTREAM_REVISION}")
+    # The upstream revision tracks some Python bytecode files.
+    sys.dont_write_bytecode = True
     sys.path.insert(0, str(path))
 
 

@@ -79,6 +79,9 @@ class GuardedToolsExecutor(ToolsExecutor):
             if verdict.details is not None:
                 event["details"] = verdict.details
             return verdict.decision
+        except GuardError as error:
+            event["error"] = str(error)
+            raise
         finally:
             event["latency_seconds"] = perf_counter() - started
             self.events.append(event)

@@ -29,8 +29,10 @@ def use_upstream(path: Path) -> None:
 def content_text(content) -> str:
     if isinstance(content, str):
         return content
-    if isinstance(content, list) and all(isinstance(block, dict) and block.get("type") == "text" for block in content):
-        return "\n".join(block["text"] for block in content)
+    if isinstance(content, list):
+        return "\n".join(
+            block["content"] for block in content if block.get("type") in ("text", "thinking")
+        )
     return json_text(content) if content is not None else ""
 
 

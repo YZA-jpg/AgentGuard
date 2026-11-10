@@ -6,7 +6,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, TextIO
 
-from .guard import Decision, Guard, GuardError, Review, write_record
+from .guard import Decision, Guard, GuardError, Review, Verdict, write_record
 
 
 def read_rows(path: Path, config: str, case_ids: Sequence[str], limit: int | None):
@@ -34,15 +34,73 @@ def read_rows(path: Path, config: str, case_ids: Sequence[str], limit: int | Non
     return hashlib.sha256(raw).hexdigest(), selected[:limit]
 
 
-def run_atbench(guard: Guard, cases, output: TextIO) -> dict[str, Any]:
+def read_split(path: Path) -> dict:
+    split = json.loads(path.read_bytes())
+    if split["config"] != "ATBench":
+        raise ValueError("The split manifest must describe ATBench")
+    groups = [list(map(str, split["splits"][name])) for name in ("train", "calibration", "heldout")]
+    ids = [case_id for group in groups for case_id in group]
+    if not all(groups) or len(ids) != len(set(ids)):
+        raise ValueError("The split must have three nonempty, disjoint ID lists")
+    return split
+
+
+def recorded_candidate(raw: str) -> dict:
+    try:
+        action = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        action = None
+    if isinstance(action, dict) and isinstance(action.get("name"), str) and "arguments" in action:
+        return action
+    return {"response": raw}
+
+
+def replay_reviews(context: Review):
+    task = None
+    for index, message in enumerate(context.history):
+        if message.get("role") == "user" and task is None:
+            task = message.get("text") or message.get("content")
+        if message.get("role") == "agent" and message.get("action"):
+            candidate = recorded_candidate(message["action"])
+            thought = message.get("thought")
+            history = context.history[:index]
+            if thought:
+                history += ({"role": "agent", "thought": thought},)
+            yield index, Review(history, task, candidate)
+
+
+def run_atbench(guard: Guard, cases, output: TextIO, replay: bool = False) -> dict[str, Any]:
     counts: Counter = Counter()
+    review_seconds = 0.0
+    review_count = 0
     for case_id, label, context in cases:
         guard.reset()
         started = perf_counter()
+        events = []
         try:
-            verdict = guard.review(context)
-            if verdict.decision == Decision.ERROR:
-                raise GuardError("Guard returned ERROR")
+            verdict = Verdict(Decision.ALLOW)
+            reviews = replay_reviews(context) if replay else [(None, context)]
+            for index, review in reviews:
+                review_started = perf_counter()
+                verdict = guard.review(review)
+                if verdict.decision == Decision.ERROR:
+                    raise GuardError("Guard returned ERROR")
+                elapsed = perf_counter() - review_started
+                review_seconds += elapsed
+                review_count += 1
+                event = {
+                    "event_index": index,
+                    "decision": verdict.decision,
+                    "risk_score": verdict.risk_score,
+                    "latency_seconds": elapsed,
+                }
+                if verdict.details is not None:
+                    event["details"] = verdict.details
+                events.append(event)
+                if verdict.decision in (Decision.HOLD, Decision.BLOCK):
+                    break
+            if not events:
+                raise GuardError("No recorded actions were available to review")
             prediction = int(verdict.decision in (Decision.HOLD, Decision.BLOCK))
             counts[label, prediction] += 1
             record = {
@@ -59,6 +117,7 @@ def run_atbench(guard: Guard, cases, output: TextIO) -> dict[str, Any]:
             "case_id": case_id,
             "label": label,
             "guard_latency_seconds": perf_counter() - started,
+            "guard_events": events,
             **record,
         })
 
@@ -81,6 +140,8 @@ def run_atbench(guard: Guard, cases, output: TextIO) -> dict[str, Any]:
         "f1": ratio(2 * tp, 2 * tp + fp + fn),
         "recall": ratio(tp, tp + fn),
         "fpr": ratio(fp, fp + tn),
+        "successful_reviews": review_count,
+        "mean_guard_latency_seconds": review_seconds / review_count if review_count else None,
     }
     write_record(output, summary)
     return summary

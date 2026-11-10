@@ -27,6 +27,7 @@ class Review:
 class Verdict:
     decision: Decision
     risk_score: float | None = None
+    details: Mapping[str, Any] | None = None
 
 
 class Guard(Protocol):

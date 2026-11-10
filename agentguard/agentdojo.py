@@ -76,6 +76,8 @@ class GuardedToolsExecutor(ToolsExecutor):
             if verdict.decision == Decision.ERROR:
                 raise GuardError("Guard returned ERROR")
             event.update(decision=verdict.decision, risk_score=verdict.risk_score)
+            if verdict.details is not None:
+                event["details"] = verdict.details
             return verdict.decision
         finally:
             event["latency_seconds"] = perf_counter() - started
@@ -100,6 +102,8 @@ def run_agentdojo(args, guard: Guard | None, output):
         pipeline.name = args.agent_model
 
     overall = EvaluationStats()
+    total_reviews = 0
+    total_review_seconds = 0.0
     for name in args.suite:
         suite = get_suite("v1.2.2", name)
         benign = args.mode == "benign"
@@ -115,6 +119,8 @@ def run_agentdojo(args, guard: Guard | None, output):
         if not selected:
             raise ValueError(f"No matching cases in suite {name}")
         stats = EvaluationStats()
+        review_count = 0
+        review_seconds = 0.0
         for uid, iid in selected:
             if executor is not None:
                 executor.reset()
@@ -125,6 +131,10 @@ def run_agentdojo(args, guard: Guard | None, output):
             events = executor.events if executor is not None else []
             if any(event["decision"] == Decision.ERROR for event in events):
                 outcome.status = "guard_error"
+            for event in events:
+                if event["decision"] != Decision.ERROR:
+                    review_count += 1
+                    review_seconds += event["latency_seconds"]
             stats.add(outcome)
             record = outcome.to_record()
             record.pop("error_message")
@@ -138,7 +148,17 @@ def run_agentdojo(args, guard: Guard | None, output):
                 **record,
             })
         overall.merge(stats)
-        write_record(output, {"record_type": "suite_summary", "suite": name, **stats.to_summary()})
-    summary = {"record_type": "overall_summary", **overall.to_summary()}
+        total_reviews += review_count
+        total_review_seconds += review_seconds
+        write_record(output, {
+            "record_type": "suite_summary", "suite": name, **stats.to_summary(),
+            "successful_reviews": review_count,
+            "mean_guard_latency_seconds": review_seconds / review_count if review_count else None,
+        })
+    summary = {
+        "record_type": "overall_summary", **overall.to_summary(),
+        "successful_reviews": total_reviews,
+        "mean_guard_latency_seconds": total_review_seconds / total_reviews if total_reviews else None,
+    }
     write_record(output, summary)
     return summary

@@ -40,6 +40,15 @@ Use `--method none` and `--method ipiguard` for the reference configurations. Se
 
 For each proposed action, the runtime records the guard verdict and latency. `HOLD` and `BLOCK` return a tool error without executing the action. A guard error terminates the current case and is counted separately. The benchmark computes utility and attack success using the original checkers. The output path must be new for every run.
 
+## Predictive baselines
+
+- `safepred` uses the SafePred prompt structure with DeepSeek-v4-pro on DashScope. It logs forecasts for immediate and longer-term effects, fixed-policy violations, and guidance. The shared executor blocks a policy violation. The ATBench runner uses causal replay and marks a trajectory positive at the first intervention. Pair with `--method agentdog --replay` for a same-protocol comparison. [SafePred paper](https://arxiv.org/html/2602.01725v1)
+- `traces` uses the authors' ATBench Stage A mechanism bank and Stage B recurrent auditor. AgentGuard adapts the published trajectories to the upstream event format and extracts Qwen3-4B layer 32 features at action ends. If a trajectory has no tool action, it uses its final recorded response. It fits and calibrates on the frozen training and calibration sets, then scores held-out trajectories from the last state. The AgentDojo adapter scores the current candidate prefix using that same ATBench-trained threshold. [TRACES paper](https://arxiv.org/html/2605.27690v2) · [Upstream code](https://github.com/lab-flair/TRACES)
+
+`scripts/run-baseline.sh` writes one JSONL and one log per evaluation. The ATBench groups use `splits/atbench-v1.json`. The AgentDojo groups run all cases in the specified suites, or all four if no suite is given. Set `TRACES_RUN` to a new output directory for `traces-train`, then reuse it for `atbench-traces` and `dojo traces`. Training requires the pinned upstream checkout at `vendor/TRACES`, pandas, scikit-learn, and the official Qwen3-4B snapshot at `models/qwen3-4b-observer`.
+
+Summaries report mean seconds per successful review. ATBench labels are trajectory-level. AgentDojo reports ASR and utility through its task checkers. A recovery-specific FPR requires labeled recovery actions.
+
 ## Tests
 
 ```bash

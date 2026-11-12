@@ -9,7 +9,15 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from .atbench import read_rows, read_split, run_atbench
-from .guard import AGENTDOG_08B, json_text, load_agentdog, write_record
+from .guard import (
+    AGENTDOG_08B,
+    DEEPSEEK_JUDGE_TEMPERATURE,
+    DEFAULT_DEEPSEEK_JUDGE,
+    json_text,
+    load_agentdog,
+    load_deepseek_judge,
+    write_record,
+)
 from .safepred import DEFAULT_SAFEPRED_MODEL, POLICY_VERSION, load_safepred
 
 
@@ -44,7 +52,7 @@ def main() -> int:
     atbench = commands.add_parser("atbench", help="classify ATBench trajectories")
     atbench.add_argument("--data", type=Path, required=True)
     atbench.add_argument("--config", choices=("ATBench", "ATBench500"), default="ATBench")
-    atbench.add_argument("--method", choices=("agentdog", "safepred", "traces"), default="agentdog")
+    atbench.add_argument("--method", choices=("agentdog", "deepseek", "safepred", "traces"), default="agentdog")
     atbench.add_argument("--split-manifest", type=Path)
     atbench.add_argument("--split", choices=("train", "calibration", "heldout"), default="heldout")
     atbench.add_argument("--replay", action="store_true", help="review recorded proposals in order")
@@ -74,6 +82,9 @@ def main() -> int:
     args = parser.parse_args()
     if args.method == "agentdog":
         args.guard_model = args.guard_model or AGENTDOG_08B
+        args.max_new_tokens = args.max_new_tokens or 512
+    if args.method == "deepseek":
+        args.guard_model = args.guard_model or DEFAULT_DEEPSEEK_JUDGE
         args.max_new_tokens = args.max_new_tokens or 512
     if args.method == "safepred":
         args.guard_model = args.guard_model or DEFAULT_SAFEPRED_MODEL
@@ -127,7 +138,7 @@ def main() -> int:
             effective_suites=args.suite,
             case_limit_per_suite=args.limit,
         )
-    if args.benchmark == "agentdojo" or args.method == "safepred":
+    if args.benchmark == "agentdojo" or args.method in ("deepseek", "safepred"):
         from dotenv import load_dotenv
 
         load_dotenv(env_file)
@@ -137,6 +148,9 @@ def main() -> int:
     if args.method == "agentdog":
         guard, revision = load_agentdog(args.guard_model, args.revision, args.device, args.max_new_tokens)
         metadata["guard_dtype"] = "float32" if args.device == "cpu" else "bfloat16"
+    elif args.method == "deepseek":
+        guard = load_deepseek_judge(args.guard_model, args.max_new_tokens)
+        metadata.update(guard_temperature=DEEPSEEK_JUDGE_TEMPERATURE, guard_thinking=False)
     elif args.method == "safepred":
         guard = load_safepred(args.guard_model, args.max_new_tokens)
         metadata.update(guard_variant="SafePred-prompt", policy_version=POLICY_VERSION, guard_thinking=False)

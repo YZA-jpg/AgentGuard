@@ -25,6 +25,9 @@ case "${1:-}" in
     atbench-agentdog)
         run atbench-agentdog-replay atbench "${atbench[@]}" --method agentdog --replay "${agentdog[@]}"
         ;;
+    atbench-deepseek)
+        run atbench-deepseek atbench "${atbench[@]}" --method deepseek --env-file "$ipiguard_root/.env"
+        ;;
     atbench-safepred)
         run atbench-safepred atbench "${atbench[@]}" --method safepred --env-file "$ipiguard_root/.env"
         ;;
@@ -58,7 +61,7 @@ case "${1:-}" in
         done
         ;;
     *)
-        echo "Usage: $0 {atbench-agentdog|atbench-safepred|traces-train|atbench-traces|dojo METHOD MODE [SUITE ...]}" >&2
+        echo "Usage: $0 {atbench-agentdog|atbench-deepseek|atbench-safepred|traces-train|atbench-traces|dojo METHOD MODE [SUITE ...]}" >&2
         exit 2
         ;;
 esac

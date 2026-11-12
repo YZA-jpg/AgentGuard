@@ -6,6 +6,8 @@ from enum import Enum
 from typing import Any, Protocol, TextIO
 
 AGENTDOG_08B = "AI45Research/AgentDoG1.5-Qwen3.5-0.8B"
+DEFAULT_DEEPSEEK_JUDGE = "deepseek-v4-pro"
+DEEPSEEK_JUDGE_TEMPERATURE = 0.0
 
 
 class Decision(str, Enum):
@@ -87,8 +89,9 @@ _JUDGMENT = re.compile(r"<Judgment>\s*(safe|unsafe)\s*</Judgment>", re.IGNORECAS
 
 
 class AgentDoG:
-    def __init__(self, generate: Callable[[str], str]) -> None:
+    def __init__(self, generate: Callable[[str], str], *, judge_name: str = "AgentDoG") -> None:
         self.generate = generate
+        self.judge_name = judge_name
 
     def reset(self) -> None:
         pass
@@ -100,7 +103,7 @@ class AgentDoG:
             raise GuardError(f"Guard generation failed ({type(error).__name__})") from error
         judgments = _JUDGMENT.findall(text)
         if len(judgments) != 1:
-            raise GuardError("AgentDoG did not return exactly one valid judgment")
+            raise GuardError(f"{self.judge_name} did not return exactly one valid judgment")
         return Verdict(Decision.BLOCK if judgments[0].lower() == "unsafe" else Decision.ALLOW)
 
 
@@ -125,3 +128,21 @@ def load_agentdog(model_id: str, revision: str | None, device: str, max_new_toke
         return tokenizer.decode(output[0, inputs.input_ids.shape[1]:], skip_special_tokens=True)
 
     return AgentDoG(generate), getattr(model.config, "_commit_hash", None) or revision
+
+
+def load_deepseek_judge(model: str, max_tokens: int) -> AgentDoG:
+    from openai import OpenAI
+
+    client = OpenAI(timeout=180, max_retries=1)
+
+    def generate(prompt: str) -> str:
+        result = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            extra_body={"enable_thinking": False},
+            temperature=DEEPSEEK_JUDGE_TEMPERATURE,
+            max_tokens=max_tokens,
+        )
+        return result.choices[0].message.content or ""
+
+    return AgentDoG(generate, judge_name="DeepSeek")

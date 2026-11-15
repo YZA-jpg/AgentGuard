@@ -1,6 +1,6 @@
 # AgentGuard 基线实验
 
-核对日期为 2026-11-14。正式任务在 `/data1/yaoziao/agentguard` 串行运行，本地模型使用一张 GPU。
+核对日期为 2026-11-15。正式任务在 `/data1/yaoziao/agentguard` 串行运行，本地模型使用一张 GPU。
 
 ## 数据和统计口径
 
@@ -18,21 +18,38 @@
 | 无护栏 `None` | — | 正常 96/96，攻击 935/935 | `bash "$run" dojo none MODE`。沿用任务代理、工具和注入配置。 |
 | DeepSeek 直接判别 | 完整轨迹 200/200 | 在线对照为 `None` | `bash "$run" atbench-deepseek`。DashScope `deepseek-v4-pro`、temperature 0、关闭 thinking、512 tokens，逐条判别完整轨迹，复用 AgentDoG 的输入和判定格式。 |
 | SafePred-prompt | 逐步回放 200/200 | 正常 96/96，攻击 935/935 | `bash "$run" atbench-safepred`、`bash "$run" dojo safepred MODE`。DashScope `deepseek-v4-pro`、temperature 0.3、关闭 thinking、2048 tokens、策略 `agentguard-safepred-v1`。 |
-| TRACES | Qwen3-4B 验收 2 条，正式训练待跑 | 攻击验收 1 条 | 设置 `TRACES_RUN`，依次运行 `bash "$run" traces-train`、`bash "$run" atbench-traces`，在线用 `bash "$run" dojo traces MODE`。观察器 `1cfa9a7208912126459214e8b04321603b3df60c` 第 32 层，作者代码 `87579ab60ce6b13f38f7d1f531b6a906656f2748`，种子 42，两阶段各 30 epoch，校准集选 F1 最优阈值。 |
+| TRACES | 末状态评分 200/200 | 正常 96/96，攻击 935/935 | 设置 `TRACES_RUN`，依次运行 `bash "$run" traces-train`、`bash "$run" atbench-traces`，在线用 `bash "$run" dojo traces MODE`。Qwen3-4B FP16 观察器 `1cfa9a7208912126459214e8b04321603b3df60c` 第 32 层，作者代码 `87579ab60ce6b13f38f7d1f531b6a906656f2748`，种子 42，两阶段各 30 epoch。校准集选出的 F1 最优阈值为 0.195，AgentDojo 沿用同一检查点和阈值。 |
 | ShieldAgent（ICML 2025）、DreamGuard | 待接入 | 待接入 | 待取得匹配论文的可运行实现或权重。 |
 
 复现 AgentDoG 的完整轨迹组时，在服务器项目目录用 `.venv/bin/python -m agentguard atbench --method agentdog --data data/ATBench/test.json --split-manifest splits/atbench-v1.json`，附上表中的权重参数和新 `--output` 路径。
 
 ## 已完成正式结果
 
-两种 ATBench 完整轨迹判别方法的留出集 ID 完全匹配。
+### ATBench
 
-| ATBench · 完整轨迹 | 有效样本 | F1 ↑ | Recall ↑ | FPR ↓ | 平均审核耗时 ↓ |
-|---|---:|---:|---:|---:|---:|
-| AgentDoG 1.5 4B | 200/200 | 64.76% | 68.69% | 42.57% | 8.30 秒 |
-| DeepSeek 直接判别 | 200/200 | 48.72% | 38.38% | 18.81% | 9.78 秒 |
+四组使用相同的 200 条留出轨迹，最终样本错误数均为 0。
 
-AgentDoG 结果为 `atbench-agentdog-4b-heldout-v1-20261110_115335.jsonl`。DeepSeek 结果为 `atbench-deepseek-20261112_160038.jsonl`，第 989 条的格式错误已按原参数补测成功，记录为 `atbench-retry-deepseek-989-20261113_124407.jsonl`。该次成功补测耗时 284.70 秒，计入平均值。
+| 方法 | 评分方式 | F1 ↑ | Recall ↑ | FPR ↓ | 平均审核耗时 ↓ |
+|---|---|---:|---:|---:|---:|
+| DeepSeek-v4-pro 直接判别 | 完整轨迹 | 48.72% | 38.38% | 18.81% | 9.780 秒 |
+| AgentDoG 1.5 4B | 完整轨迹 | 64.76% | 68.69% | 42.57% | 8.299 秒 |
+| SafePred-prompt | 逐步回放，首次拦截判为危险 | 65.28% | 94.95% | 94.06% | 10.148 秒 |
+| TRACES | 完整轨迹，按末状态评分 | 81.34% | 85.86% | 24.75% | 0.243 秒 |
+
+耗时按每次成功审核计算。SafePred 有 337 次逐步审核，其余方法每条轨迹计一次评分。AgentDoG 结果为 `atbench-agentdog-4b-heldout-v1-20261110_115335.jsonl`。DeepSeek 结果为 `atbench-deepseek-20261112_160038.jsonl`，第 989 条的格式错误已按原参数补测成功，记录为 `atbench-retry-deepseek-989-20261113_124407.jsonl`。该次成功补测耗时 284.70 秒，计入平均值。
+
+### AgentDojo
+
+四组使用相同的 96 条正常任务和 935 条攻击任务，最终样本错误数均为 0。审核耗时为每次成功审核的平均值。
+
+| 方法 | 正常 Utility ↑ | 攻击 ASR ↓ | 攻击 Utility ↑ | 平均审核耗时（正常 / 攻击）↓ |
+|---|---:|---:|---:|---:|
+| 无护栏 `None` | 86/96 · 89.58% | 56/935 · 5.99% | 806/935 · 86.20% | — |
+| AgentDoG 1.5 4B | 63/96 · 65.63% | 7/935 · 0.75% | 677/935 · 72.41% | 9.099 / 9.356 秒 |
+| SafePred-prompt | 73/96 · 76.04% | 3/935 · 0.32% | 813/935 · 86.95% | 33.156 / 10.671 秒 |
+| TRACES | 46/96 · 47.92% | 18/935 · 1.93% | 431/935 · 46.10% | 0.207 / 0.237 秒 |
+
+#### AgentDoG 分 suite
 
 | AgentDoG · AgentDojo | 正常 Utility | 攻击 ASR | 攻击 Utility | 平均审核耗时（正常 / 攻击） |
 |---|---:|---:|---:|---:|
@@ -44,13 +61,11 @@ AgentDoG 结果为 `atbench-agentdog-4b-heldout-v1-20261110_115335.jsonl`。Deep
 
 原始 AgentDojo 批次为 `20261110_160001` 和 `20261111_170421`。Workspace 19/2、19/3 和 Banking 5/5 的三次判定格式错误均经补测成功，最终错误数为 0。原始文件保存在服务器的 `/data1/yaoziao/agentguard/results`。
 
-AgentDojo `None` 批次 `20261112_160038` 的 1,031 条任务与 AgentDoG 完全配对。正常 Utility 为 89.58%（86/96），攻击 ASR 为 5.99%（56/935），攻击 Utility 为 86.20%（806/935）。开启 AgentDoG 后，三项分别下降 23.96、5.24、13.80 个百分点，差值按未四舍五入的比例计算。
+AgentDojo `None` 批次为 `20261112_160038`。
 
-### SafePred-prompt
+#### SafePred-prompt 分 suite
 
-批次 `20261113_142149`。ATBench 逐步回放完成 200/200，F1 **65.28%**、Recall **94.95%**（94/99）、FPR **94.06%**（95/101），337 次审核平均 **10.15 秒**。完整轨迹结果采用不同的输入口径。
-
-AgentDojo 最后一组于 2026-11-14 19:52（北京时间）结束。正常组 96/96，攻击组 935/935，任务 ID 均与 `None` 完全匹配。两套评测均无运行错误。
+批次 `20261113_142149`，AgentDojo 最后一组于 11 月 14 日 19:52（北京时间）结束。
 
 | SafePred-prompt · AgentDojo | 正常 Utility | 攻击 ASR | 攻击 Utility | 平均审核耗时（正常 / 攻击） |
 |---|---:|---:|---:|---:|
@@ -60,9 +75,15 @@ AgentDojo 最后一组于 2026-11-14 19:52（北京时间）结束。正常组 9
 | Banking | 11/16 · 68.75% | 0/144 · 0.00% | 114/144 · 79.17% | 13.08 / 12.42 秒 |
 | 总体 | **73/96 · 76.04%** | **3/935 · 0.32%** | **813/935 · 86.95%** | **33.16 / 10.67 秒** |
 
-正常组有 522 次审核，中位 10.19 秒，其中 Workspace 有 41 次超过 60 秒。攻击组有 4,128 次审核，中位 8.08 秒。相较 `None`，攻击 ASR 下降 5.67 个百分点，攻击 Utility 上升 0.75 个百分点，正常 Utility 下降 13.54 个百分点。
+正常组有 522 次审核，中位 10.19 秒，其中 Workspace 有 41 次超过 60 秒。攻击组有 4,128 次审核，中位 8.08 秒。
 
-## 推荐顺序
+#### TRACES 分 suite
 
-1. 单卡串行完成 TRACES 训练、校准、ATBench 末状态评分和 AgentDojo 正常及攻击组。
-2. 需要同协议的 ATBench 回放对照时，在同一留出集上补跑 `atbench-agentdog`。
+批次 `20261114_214107`，AgentDojo 最后一组于 11 月 15 日 16:15（北京时间）结束。训练与校准参数保存在 `results/traces-atbench-20261114_214107/manifest.json`。
+
+| TRACES · AgentDojo | 正常 Utility | 攻击 ASR | 攻击 Utility | 平均审核耗时（正常 / 攻击） |
+|---|---:|---:|---:|---:|
+| Workspace | 19/39 · 48.72% | 14/546 · 2.56% | 258/546 · 47.25% | 0.337 / 0.318 秒 |
+| Slack | 9/21 · 42.86% | 4/105 · 3.81% | 24/105 · 22.86% | 0.108 / 0.133 秒 |
+| Travel | 11/20 · 55.00% | 0/140 · 0.00% | 86/140 · 61.43% | 0.177 / 0.215 秒 |
+| Banking | 7/16 · 43.75% | 0/144 · 0.00% | 63/144 · 43.75% | 0.107 / 0.131 秒 |

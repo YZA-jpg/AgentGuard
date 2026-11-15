@@ -38,6 +38,8 @@
 
 耗时按每次成功审核计算。SafePred 有 337 次逐步审核，其余方法每条轨迹计一次评分。AgentDoG 结果为 `atbench-agentdog-4b-heldout-v1-20261110_115335.jsonl`。DeepSeek 结果为 `atbench-deepseek-20261112_160038.jsonl`，第 989 条的格式错误已按原参数补测成功，记录为 `atbench-retry-deepseek-989-20261113_124407.jsonl`。该次成功补测耗时 284.70 秒，计入平均值。
 
+AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 AgentGuard 的原输入模板。复跑时使用 `--agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt`，采用作者公开的粗粒度提示及角色标记，将数据的 `tool_used` 映射为可用工具，沿用同一批留出 ID 和原解码参数。模板来自作者仓库 `c8d803f267a43ec0e103a651265f50f1ff4456d5`。 [论文表 2](https://arxiv.org/html/2605.29801#S3.T2) · [作者推理示例](https://github.com/AI45Lab/AgentDoG/blob/c8d803f267a43ec0e103a651265f50f1ff4456d5/examples/getting_started_v1_5.md#coarse-grained-moderation)
+
 ### AgentDojo
 
 四组使用相同的 96 条正常任务和 935 条攻击任务，最终样本错误数均为 0。审核耗时为每次成功审核的平均值。
@@ -87,3 +89,12 @@ AgentDojo `None` 批次为 `20261112_160038`。
 | Slack | 9/21 · 42.86% | 4/105 · 3.81% | 24/105 · 22.86% | 0.108 / 0.133 秒 |
 | Travel | 11/20 · 55.00% | 0/140 · 0.00% | 86/140 · 61.43% | 0.177 / 0.215 秒 |
 | Banking | 7/16 · 43.75% | 0/144 · 0.00% | 63/144 · 43.75% | 0.107 / 0.131 秒 |
+
+### 输入协议复核
+
+| 已跑组 | 复核结论 |
+|---|---|
+| ATBench · DeepSeek 直接判别 | 与原 AgentDoG 使用相同的简化提示和历史序列，工具池为空。 |
+| ATBench · SafePred-prompt | 逐步回放读取此前历史、当前候选动作和当时可见的观察，工具池为空。结果对应固定策略的提示词适配。 |
+| ATBench · TRACES | 输入是动作位置的轨迹表示。作者的 ATBench 复现示例显式使用 `--no_tool_pool`。 |
+| AgentDojo · 四组 | 使用同一任务代理、注入配置和任务 ID。AgentDoG、SafePred 在审核时收到可用工具 schema。TRACES 审核候选动作时从历史和动作提取表示，`None` 直接运行任务代理。 |

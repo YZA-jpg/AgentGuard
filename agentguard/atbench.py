@@ -6,10 +6,12 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, TextIO
 
-from .guard import Decision, Guard, GuardError, Review, Verdict, write_record
+from .guard import Decision, Guard, GuardError, Review, Verdict, json_text, write_record
 
 
-def read_rows(path: Path, config: str, case_ids: Sequence[str], limit: int | None):
+def read_rows(
+    path: Path, config: str, case_ids: Sequence[str], limit: int | None, *, include_tools: bool = False,
+):
     raw = path.read_bytes()
     rows = json.loads(raw)
     if not isinstance(rows, list):
@@ -18,20 +20,41 @@ def read_rows(path: Path, config: str, case_ids: Sequence[str], limit: int | Non
     keys = [str(row[id_field]) for row in rows]
     if len(set(keys)) != len(keys):
         raise ValueError("Duplicate ATBench IDs")
-    if missing := set(case_ids) - set(keys):
+    requested = set(case_ids)
+    if missing := requested - set(keys):
         raise ValueError(f"Unknown case IDs: {sorted(missing)}")
     selected = []
     for row in rows:
         case_id = str(row[id_field])
-        if case_ids and case_id not in case_ids:
+        if requested and case_id not in requested:
             continue
         if row["label"] not in (0, 1):
             raise ValueError(f"Invalid binary label for {case_id}")
         history = tuple(message for group in row[history_field] for message in group)
-        selected.append((case_id, int(row["label"]), Review(history)))
+        tools = tuple(
+            {key: tool[key] for key in ("name", "description", "parameters") if key in tool}
+            for tool in row["tool_used"]
+        ) if include_tools else ()
+        selected.append((case_id, int(row["label"]), Review(history, tools=tools)))
     if not selected:
         raise ValueError("No ATBench cases selected")
     return hashlib.sha256(raw).hexdigest(), selected[:limit]
+
+
+def author_trajectory_prompt(template: str, context: Review) -> str:
+    parts = ["=== Conversation History ==="]
+    for message in context.history:
+        role = message["role"]
+        if role == "agent":
+            fields = [
+                f"[{key.upper()}]: {str(message[key]).strip()}"
+                for key in ("thought", "action") if message.get(key)
+            ]
+            if fields:
+                parts.append("\n[AGENT]:\n" + "\n".join(fields))
+        elif role in ("user", "environment") and message.get("content"):
+            parts.append(f"\n[{role.upper()}]: {message['content']}")
+    return template.format(formatted_trajectory="\n".join(parts), tool_list_text=json_text(context.tools))
 
 
 def read_split(path: Path) -> dict:

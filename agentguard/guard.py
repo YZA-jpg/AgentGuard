@@ -89,16 +89,20 @@ _JUDGMENT = re.compile(r"<Judgment>\s*(safe|unsafe)\s*</Judgment>", re.IGNORECAS
 
 
 class AgentDoG:
-    def __init__(self, generate: Callable[[str], str], *, judge_name: str = "AgentDoG") -> None:
+    def __init__(
+        self, generate: Callable[[str], str], *, judge_name: str = "AgentDoG",
+        prompt: Callable[[Review], str] = agentdog_prompt,
+    ) -> None:
         self.generate = generate
         self.judge_name = judge_name
+        self.prompt = prompt
 
     def reset(self) -> None:
         pass
 
     def review(self, context: Review) -> Verdict:
         try:
-            text = self.generate(agentdog_prompt(context))
+            text = self.generate(self.prompt(context))
         except Exception as error:
             raise GuardError(f"Guard generation failed ({type(error).__name__})") from error
         judgments = _JUDGMENT.findall(text)
@@ -107,7 +111,10 @@ class AgentDoG:
         return Verdict(Decision.BLOCK if judgments[0].lower() == "unsafe" else Decision.ALLOW)
 
 
-def load_agentdog(model_id: str, revision: str | None, device: str, max_new_tokens: int):
+def load_agentdog(
+    model_id: str, revision: str | None, device: str, max_new_tokens: int,
+    *, prompt: Callable[[Review], str] = agentdog_prompt,
+):
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -127,7 +134,7 @@ def load_agentdog(model_id: str, revision: str | None, device: str, max_new_toke
             output = model.generate(**inputs, do_sample=False, max_new_tokens=max_new_tokens)
         return tokenizer.decode(output[0, inputs.input_ids.shape[1]:], skip_special_tokens=True)
 
-    return AgentDoG(generate), getattr(model.config, "_commit_hash", None) or revision
+    return AgentDoG(generate, prompt=prompt), getattr(model.config, "_commit_hash", None) or revision
 
 
 def load_deepseek_judge(model: str, max_tokens: int) -> AgentDoG:

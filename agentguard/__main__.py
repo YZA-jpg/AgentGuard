@@ -4,15 +4,17 @@ import platform
 import subprocess
 import sys
 from datetime import datetime, timezone
+from functools import partial
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from .atbench import read_rows, read_split, run_atbench
+from .atbench import author_trajectory_prompt, read_rows, read_split, run_atbench
 from .guard import (
     AGENTDOG_08B,
     DEEPSEEK_JUDGE_TEMPERATURE,
     DEFAULT_DEEPSEEK_JUDGE,
+    agentdog_prompt,
     json_text,
     load_agentdog,
     load_deepseek_judge,
@@ -56,6 +58,7 @@ def main() -> int:
     atbench.add_argument("--split-manifest", type=Path)
     atbench.add_argument("--split", choices=("train", "calibration", "heldout"), default="heldout")
     atbench.add_argument("--replay", action="store_true", help="review recorded proposals in order")
+    atbench.add_argument("--agentdog-author-prompt", type=Path, help="use the authors' coarse-grained prompt file")
     atbench.add_argument("--case-id", action="append", default=[])
     atbench.add_argument("--limit", type=positive)
     dojo = commands.add_parser("agentdojo", help="evaluate the task agent with a runtime guard")
@@ -80,6 +83,13 @@ def main() -> int:
         command.add_argument("--traces-upstream", type=Path, default=Path("vendor/TRACES"))
         command.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    author_prompt_path = getattr(args, "agentdog_author_prompt", None)
+    prompt = agentdog_prompt
+    if author_prompt_path:
+        if args.method != "agentdog" or args.replay or args.config != "ATBench":
+            parser.error("--agentdog-author-prompt requires AgentDoG full-trajectory scoring on ATBench")
+        template_bytes = author_prompt_path.read_bytes()
+        prompt = partial(author_trajectory_prompt, template_bytes.decode("utf-8"))
     if args.method == "agentdog":
         args.guard_model = args.guard_model or AGENTDOG_08B
         args.max_new_tokens = args.max_new_tokens or 512
@@ -111,12 +121,20 @@ def main() -> int:
                 parser.error("--split-manifest requires ATBench and excludes --case-id and --limit")
             split = read_split(args.split_manifest)
             case_ids = list(map(str, split["splits"][args.split]))
-        data_sha, cases = read_rows(args.data, args.config, case_ids, args.limit)
+        data_sha, cases = read_rows(args.data, args.config, case_ids, args.limit, include_tools=bool(author_prompt_path))
         if split and data_sha != split["source_sha256"]:
             parser.error("ATBench source SHA-256 does not match the split manifest")
         metadata.update(dataset_sha256=data_sha, split=args.split if split else "test",
                         split_id=split["id"] if split else None,
                         protocol="pre_action_replay" if replay else "full_trajectory")
+        if author_prompt_path:
+            metadata.update(
+                prompt_variant="agentdog-v1.5-author-coarse",
+                prompt_sha256=sha256(template_bytes).hexdigest(),
+                tool_information="tool_used:name,description,parameters",
+                guard_thinking=False,
+                guard_do_sample=False,
+            )
         env_file = args.env_file
     else:
         root = args.ipiguard_root.resolve()
@@ -146,7 +164,9 @@ def main() -> int:
             parser.error("Configure OPENAI_API_KEY and OPENAI_BASE_URL or pass --env-file")
     guard, revision = None, None
     if args.method == "agentdog":
-        guard, revision = load_agentdog(args.guard_model, args.revision, args.device, args.max_new_tokens)
+        guard, revision = load_agentdog(
+            args.guard_model, args.revision, args.device, args.max_new_tokens, prompt=prompt,
+        )
         metadata["guard_dtype"] = "float32" if args.device == "cpu" else "bfloat16"
     elif args.method == "deepseek":
         guard = load_deepseek_judge(args.guard_model, args.max_new_tokens)

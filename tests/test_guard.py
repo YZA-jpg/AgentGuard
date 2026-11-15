@@ -4,11 +4,30 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agentguard.atbench import read_rows, run_atbench
+from agentguard.atbench import author_trajectory_prompt, read_rows, run_atbench
 from agentguard.guard import AgentDoG, Decision, GuardError, Review
 
 
 class GuardTests(unittest.TestCase):
+    def test_author_format_includes_tool_schema_without_gold_fields(self):
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder) / "test.json"
+            data.write_text(json.dumps([{
+                "id": 1, "label": 1, "reason": "gold-only",
+                "tool_used": [{"name": "lookup", "description": "Read a record",
+                               "parameters": {"type": "object"}, "_source": "provenance-only"}],
+                "contents": [[{"role": "user", "content": "Look up a record."},
+                              {"role": "agent", "thought": "Read first", "action": "lookup"},
+                              {"role": "environment", "content": "Returned a record"}]],
+            }]), encoding="utf-8")
+            _, cases = read_rows(data, "ATBench", (), None, include_tools=True)
+            prompt = author_trajectory_prompt("{formatted_trajectory}\n{tool_list_text}", cases[0][2])
+            for text in ("[USER]", "[AGENT]", "[THOUGHT]", "[ACTION]", "[ENVIRONMENT]", "Read a record"):
+                self.assertIn(text, prompt)
+            self.assertNotIn("gold-only", prompt)
+            self.assertNotIn("provenance-only", prompt)
+            self.assertNotIn("_source", prompt)
+
     def test_requires_one_designated_judgment(self):
         context = Review(())
         self.assertEqual(

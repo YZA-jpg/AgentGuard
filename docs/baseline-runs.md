@@ -18,7 +18,7 @@
 | 无护栏 `None` | — | 正常 96/96，攻击 935/935 | `bash "$run" dojo none MODE`。沿用任务代理、工具和注入配置。 |
 | DeepSeek 直接判别 | 完整轨迹 200/200 | 在线对照为 `None` | `bash "$run" atbench-deepseek`。DashScope `deepseek-v4-pro`、temperature 0、关闭 thinking、512 tokens，逐条判别完整轨迹，复用 AgentDoG 的输入和判定格式。 |
 | SafePred-prompt | 逐步回放 200/200 | 正常 96/96，攻击 935/935 | `bash "$run" atbench-safepred`、`bash "$run" dojo safepred MODE`。DashScope `deepseek-v4-pro`、temperature 0.3、关闭 thinking、2048 tokens、策略 `agentguard-safepred-v1`。 |
-| TRACES | 末状态评分 200/200 | 正常 96/96，攻击 935/935 | 设置 `TRACES_RUN`，依次运行 `bash "$run" traces-train`、`bash "$run" atbench-traces`，在线用 `bash "$run" dojo traces MODE`。Qwen3-4B FP16 观察器 `1cfa9a7208912126459214e8b04321603b3df60c` 第 32 层，作者代码 `87579ab60ce6b13f38f7d1f531b6a906656f2748`，种子 42，两阶段各 30 epoch。校准集选出的 F1 最优阈值为 0.195，AgentDojo 沿用同一检查点和阈值。 |
+| TRACES | 末状态评分 200/200 | 正常 96/96，攻击 935/935 | 设置 `TRACES_RUN`，依次运行 `bash "$run" traces-train`、`bash "$run" atbench-traces`，在线用 `bash "$run" dojo traces MODE`。Qwen3-4B FP16 观察器 `1cfa9a7208912126459214e8b04321603b3df60c` 第 32 层，作者代码 `87579ab60ce6b13f38f7d1f531b6a906656f2748`，种子 42，两阶段各 30 epoch，机制数量 32。校准集选出的 F1 最优阈值为 0.195，AgentDojo 沿用同一检查点和阈值。 |
 | ShieldAgent（ICML 2025）、DreamGuard | 待接入 | 待接入 | 待取得匹配论文的可运行实现或权重。 |
 
 复现 AgentDoG 的完整轨迹组时，在服务器项目目录用 `.venv/bin/python -m agentguard atbench --method agentdog --data data/ATBench/test.json --split-manifest splits/atbench-v1.json`，附上表中的权重参数和新 `--output` 路径。
@@ -38,7 +38,7 @@
 
 耗时按每次成功审核计算。SafePred 有 337 次逐步审核，其余方法每条轨迹计一次评分。AgentDoG 结果为 `atbench-agentdog-4b-heldout-v1-20261110_115335.jsonl`。DeepSeek 结果为 `atbench-deepseek-20261112_160038.jsonl`，第 989 条的格式错误已按原参数补测成功，记录为 `atbench-retry-deepseek-989-20261113_124407.jsonl`。该次成功补测耗时 284.70 秒，计入平均值。
 
-AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 AgentGuard 的原输入模板。复跑时使用 `--agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt`，采用作者公开的粗粒度提示及角色标记，将数据的 `tool_used` 映射为可用工具，沿用同一批留出 ID 和原解码参数。模板来自作者仓库 `c8d803f267a43ec0e103a651265f50f1ff4456d5`。 [论文表 2](https://arxiv.org/html/2605.29801#S3.T2) · [作者推理示例](https://github.com/AI45Lab/AgentDoG/blob/c8d803f267a43ec0e103a651265f50f1ff4456d5/examples/getting_started_v1_5.md#coarse-grained-moderation)
+AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 AgentGuard 的原输入模板。复跑批次 `20261115_220939` 使用 `--agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt`，采用作者公开的粗粒度提示及角色标记，将数据的 `tool_used` 映射为可用工具，沿用同一批留出 ID 和原解码参数。模板来自作者仓库 `c8d803f267a43ec0e103a651265f50f1ff4456d5`。 [论文表 2](https://arxiv.org/html/2605.29801#S3.T2) · [作者推理示例](https://github.com/AI45Lab/AgentDoG/blob/c8d803f267a43ec0e103a651265f50f1ff4456d5/examples/getting_started_v1_5.md#coarse-grained-moderation)
 
 ### AgentDojo
 
@@ -95,6 +95,6 @@ AgentDojo `None` 批次为 `20261112_160038`。
 | 已跑组 | 复核结论 |
 |---|---|
 | ATBench · DeepSeek 直接判别 | 与原 AgentDoG 使用相同的简化提示和历史序列，工具池为空。 |
-| ATBench · SafePred-prompt | 逐步回放读取此前历史、当前候选动作和当时可见的观察，工具池为空。结果对应固定策略的提示词适配。 |
-| ATBench · TRACES | 输入是动作位置的轨迹表示。作者的 ATBench 复现示例显式使用 `--no_tool_pool`。 |
+| ATBench · SafePred-prompt | 逐步回放读取此前历史、当前候选动作和当时可见的观察，工具池为空。结果对应 DeepSeek-v4-pro 与固定策略的提示词适配。论文主表使用 Qwen3-Max 护栏，在 OS-Harm 和 WASP 评测。 [SafePred 论文](https://arxiv.org/html/2602.01725v1#S4) |
+| ATBench · TRACES | 作者运行示例显式使用 `--no_tool_pool`。已核对 800 条训练及校准 ID 与 200 条留出 ID 的交集为 0。检查点的机制数为仓库默认的 32，论文附录 B.3 的配置为 8。我们的 F1 为 81.34%，论文 Qwen3-4B 同类骨干的 F1 为 84.5%。 [TRACES 论文](https://arxiv.org/html/2605.27690v2#S4.T1) · [论文附录 B.3](https://arxiv.org/html/2605.27690v2#A2.SS3) · [作者代码](https://github.com/lab-flair/TRACES#2-atbench-pipeline) |
 | AgentDojo · 四组 | 使用同一任务代理、注入配置和任务 ID。AgentDoG、SafePred 在审核时收到可用工具 schema。TRACES 审核候选动作时从历史和动作提取表示，`None` 直接运行任务代理。 |

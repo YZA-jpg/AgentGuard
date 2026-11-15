@@ -38,7 +38,9 @@
 
 耗时按每次成功审核计算。SafePred 有 337 次逐步审核，其余方法每条轨迹计一次评分。AgentDoG 结果为 `atbench-agentdog-4b-heldout-v1-20261110_115335.jsonl`。DeepSeek 结果为 `atbench-deepseek-20261112_160038.jsonl`，第 989 条的格式错误已按原参数补测成功，记录为 `atbench-retry-deepseek-989-20261113_124407.jsonl`。该次成功补测耗时 284.70 秒，计入平均值。
 
-AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 AgentGuard 的原输入模板。复跑批次 `20261115_220939` 使用 `--agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt`，采用作者公开的粗粒度提示及角色标记，将数据的 `tool_used` 映射为可用工具，沿用同一批留出 ID 和原解码参数。模板来自作者仓库 `c8d803f267a43ec0e103a651265f50f1ff4456d5`。 [论文表 2](https://arxiv.org/html/2605.29801#S3.T2) · [作者推理示例](https://github.com/AI45Lab/AgentDoG/blob/c8d803f267a43ec0e103a651265f50f1ff4456d5/examples/getting_started_v1_5.md#coarse-grained-moderation)
+AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 AgentGuard 的原输入模板。复跑使用 `--agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt`，采用作者公开的粗粒度提示及角色标记，将数据的 `tool_used` 映射为可用工具。模板来自作者仓库 `c8d803f267a43ec0e103a651265f50f1ff4456d5`。 [论文表 2](https://arxiv.org/html/2605.29801#S3.T2) · [作者推理示例](https://github.com/AI45Lab/AgentDoG/blob/c8d803f267a43ec0e103a651265f50f1ff4456d5/examples/getting_started_v1_5.md#coarse-grained-moderation)
+
+512 token 试跑 `20261115_220939` 因判定格式错误提前结束。预留样本 1 在 512 token 被截断，到第 534 token 得到有效判定；预留样本 184 在 402 token 得到有效判定。正式复跑 `20261115_221521` 使用同一 4B 权重、同一 200 条留出轨迹、BF16、贪心解码、关闭 thinking，输出上限改为 1,024 token。结果文件为 `atbench-agentdog-author-heldout-1024-20261115_221521.jsonl`，结果待汇总。
 
 ### AgentDojo
 

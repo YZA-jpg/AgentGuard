@@ -12,6 +12,7 @@ UPSTREAM_REVISION = "87579ab60ce6b13f38f7d1f531b6a906656f2748"
 OBSERVER_REVISION = "1cfa9a7208912126459214e8b04321603b3df60c"
 OBSERVER_LAYER = 32
 MAX_PROMPT_TOKENS = 7500
+DEFAULT_MECHANISMS = 32
 
 
 def use_upstream(path: Path) -> None:
@@ -120,11 +121,12 @@ class ActionEndEncoder:
             yield index, vector
 
 
-def load_head(directory: Path, dimension: int, device: str):
+def load_head(directory: Path, dimension: int, device: str, mechanisms: int):
     import config_atbench_trace_v3 as config
     import evaluate_atbench_trace as evaluate
 
     config.DEVICE = device
+    config.K_MECH = mechanisms
     evaluate.ensure_config_defaults()
     args = SimpleNamespace(
         ckpt=str(directory / "traces-stage-b.pt"),
@@ -182,7 +184,7 @@ def load_traces(directory: Path, upstream: Path, device: str):
     use_upstream(upstream)
     run = json.loads((directory / "manifest.json").read_bytes())
     encoder = ActionEndEncoder(run["observer"], run["observer_revision"], run["layer"], device)
-    head = load_head(directory, encoder.model.config.hidden_size, device)
+    head = load_head(directory, encoder.model.config.hidden_size, device, run.get("mechanisms", DEFAULT_MECHANISMS))
     return TracesGuard(encoder, head, run["threshold"]), {
         **run, "observer_dtype": str(encoder.dtype), "head_dtype": "float32",
     }

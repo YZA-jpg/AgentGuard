@@ -21,7 +21,10 @@ def train(args) -> dict:
     split = read_split(args.split_manifest)
     data_sha, rows = read_rows(args.data, "ATBench", [], None)
     groups = {name: set(map(str, ids)) for name, ids in split["splits"].items()}
-    if data_sha != split["source_sha256"] or set.union(*groups.values()) != {row[0] for row in rows}:
+    included = groups["train"] | groups["calibration"] | groups["heldout"]
+    excluded = set(map(str, split.get("excluded_ids", ())))
+    if (data_sha != split["source_sha256"] or included & excluded
+            or included | excluded != {row[0] for row in rows}):
         raise ValueError("ATBench input and split manifest do not match")
 
     use_upstream(args.upstream)
@@ -48,13 +51,15 @@ def train(args) -> dict:
     config.OUT_DIR = str(directory)
     config.LAYERS = [OBSERVER_LAYER]
     config.DEVICE = args.device
+    if args.mechanisms is not None:
+        config.K_MECH = args.mechanisms
     if args.smoke:
         config.EPOCHS_STAGE_A = config.EPOCHS_STAGE_B = 1
 
     smoke_counts = defaultdict(int)
     with open(config.TRAJ_JSONL_PATH, "x", encoding="utf-8") as labels:
         for case_id, label, context in rows:
-            if case_id in groups["heldout"]:
+            if case_id in groups["heldout"] or case_id in excluded:
                 continue
             name = "train" if case_id in groups["train"] else "calibration"
             if args.smoke and smoke_counts[name, label] >= {"train": 4, "calibration": 2}[name]:
@@ -88,17 +93,22 @@ def train(args) -> dict:
     }), encoding="utf-8")
     stage_a.train_stage_a(SimpleNamespace(overwrite_split=False))
     stage_b.train(SimpleNamespace(stage_a_ckpt=None, out_prefix="traces-stage-b"))
-    head = load_head(directory, dimension, args.device)
-    labels = [label for label, _ in calibration]
-    scores = [score(head, vectors, args.device)[0] for _, vectors in calibration]
-    threshold, calibration_f1 = evaluate.find_best_threshold(np.asarray(labels), np.asarray(scores), metric="f1")
+    head = load_head(directory, dimension, args.device, config.K_MECH)
+    labels = np.asarray([label for label, _ in calibration])
+    scores = np.asarray([score(head, vectors, args.device)[0] for _, vectors in calibration])
+    best_threshold, best_f1 = evaluate.find_best_threshold(labels, scores, metric="f1")
+    threshold = best_threshold if args.threshold is None else args.threshold
+    calibration_f1 = best_f1 if args.threshold is None else evaluate.binary_metrics(labels, scores, threshold)["f1"]
     manifest = {
         "variant": "TRACES-ATBench-adapter",
         "upstream_revision": UPSTREAM_REVISION,
         "observer": observer,
         "observer_revision": OBSERVER_REVISION,
         "layer": OBSERVER_LAYER,
+        "mechanisms": config.K_MECH,
         "threshold": threshold,
+        "threshold_source": "calibration_f1" if args.threshold is None else "fixed",
+        "calibration_best_threshold": best_threshold,
         "calibration_f1": calibration_f1,
         "dataset_sha256": data_sha,
         "split_id": split["id"],
@@ -119,8 +129,15 @@ def main() -> None:
     parser.add_argument("--observer", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--mechanisms", type=int, help="number of mechanisms, defaults to the upstream config")
+    parser.add_argument("--threshold", type=float, help="fixed decision threshold, defaults to calibration F1")
     parser.add_argument("--smoke", action="store_true", help="train for one epoch on 8 train and 4 calibration trajectories")
-    print(json_text(train(parser.parse_args())))
+    args = parser.parse_args()
+    if args.mechanisms is not None and args.mechanisms < 1:
+        parser.error("--mechanisms must be positive")
+    if args.threshold is not None and not 0.0 <= args.threshold <= 1.0:
+        parser.error("--threshold must be between 0 and 1")
+    print(json_text(train(args)))
 
 
 if __name__ == "__main__":

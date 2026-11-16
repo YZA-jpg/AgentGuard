@@ -103,3 +103,14 @@ AgentDojo `None` 批次为 `20261112_160038`。
 | ATBench · SafePred-prompt | 逐步回放读取此前历史、当前候选动作和当时可见的观察，工具池为空。结果对应 DeepSeek-v4-pro 与固定策略的提示词适配。论文主表使用 Qwen3-Max 护栏，在 OS-Harm 和 WASP 评测。 [SafePred 论文](https://arxiv.org/html/2602.01725v1#S4) |
 | ATBench · TRACES | 作者运行示例显式使用 `--no_tool_pool`。已核对 800 条训练及校准 ID 与 200 条留出 ID 的交集为 0。检查点的机制数为仓库默认的 32，论文附录 B.3 的配置为 8。我们的 F1 为 81.34%，论文 Qwen3-4B 同类骨干的 F1 为 84.5%。 [TRACES 论文](https://arxiv.org/html/2605.27690v2#S4.T1) · [论文附录 B.3](https://arxiv.org/html/2605.27690v2#A2.SS3) · [作者代码](https://github.com/lab-flair/TRACES#2-atbench-pipeline) |
 | AgentDojo · 四组 | 使用同一任务代理、注入配置和任务 ID。AgentDoG、SafePred 在审核时收到可用工具 schema。TRACES 审核候选动作时从历史和动作提取表示，`None` 直接运行任务代理。 |
+
+### ATBench 补跑配置
+
+| 组别 | 划分 | 与已有结果的关系 |
+|---|---|---|
+| DeepSeek 直接判别，作者输入格式 | `splits/atbench-v1.json` | `--method deepseek --agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt --max-new-tokens 1024`。使用与 AgentDoG 73.49% F1 组相同的提示、轨迹、工具 schema 和输出上限。 |
+| SafePred-prompt，含工具说明 | `splits/atbench-v1.json` | `--method safepred --include-tools`。将工具 schema 传入每步，沿用预测提示、策略版本、API 参数和首次拦截规则。 |
+| TRACES，论文参数 | `splits/atbench-traces-seed42.json` | `traces_train --mechanisms 8 --threshold 0.3`。按作者公开的分层算法和 seed 42 重建划分，共 599 条训练、200 条验证、200 条留出。第 908 条仅有文本回复，按公开的动作提取命令排除。沿用公开 README 的固定阈值 0.3。原始作者逐条划分未在已固定的公开 checkout 中提供。 |
+| TRACES，原划分配对 | `splits/atbench-v1.json` | `traces_train --mechanisms 8`。沿用原划分和验证集 F1 选阈值流程，对照已有的 K=32。 |
+
+作者算法重建的测试 ID 与原固定测试 ID 相交 34 条。跨方法配对比较使用原划分。TRACES 末状态汇总同时记录 EDR 和 EAUPC，按论文 B.4 从各步风险分数计算。 [论文参数和指标](https://arxiv.org/html/2605.27690v2#A2.SS3) · [作者运行命令](https://github.com/lab-flair/TRACES#step-5-evaluate-atbench-model)

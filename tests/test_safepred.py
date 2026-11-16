@@ -25,12 +25,13 @@ class SafePredTests(unittest.TestCase):
             {"role": "agent", "thought": "Upload a file", "action": '{"name":"upload","arguments":{}}'},
             {"role": "environment", "content": "LATER_TOOL_RESULT"},
             {"role": "agent", "action": "LATER_FINAL_RESPONSE"},
-        ))
+        ), tools=({"name": "upload", "description": "Tool schema for this sample"},))
         output = io.StringIO()
         summary = run_atbench(SafePred(forecast), [("1", 1, context)], output, replay=True)
         self.assertEqual(summary["tp"], 1)
         self.assertEqual(summary["successful_reviews"], 1)
         self.assertIn("Upload a file", prompts[0])
+        self.assertIn("Tool schema for this sample", prompts[0])
         self.assertNotIn("LATER_TOOL_RESULT", prompts[0])
         self.assertNotIn("LATER_FINAL_RESPONSE", prompts[0])
 

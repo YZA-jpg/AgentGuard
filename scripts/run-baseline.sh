@@ -28,17 +28,26 @@ case "${1:-}" in
     atbench-deepseek)
         run atbench-deepseek atbench "${atbench[@]}" --method deepseek --env-file "$ipiguard_root/.env"
         ;;
+    atbench-deepseek-author)
+        run atbench-deepseek-author atbench "${atbench[@]}" --method deepseek --env-file "$ipiguard_root/.env" \
+            --agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt --max-new-tokens 1024
+        ;;
     atbench-safepred)
         run atbench-safepred atbench "${atbench[@]}" --method safepred --env-file "$ipiguard_root/.env"
         ;;
+    atbench-safepred-tools)
+        run atbench-safepred-tools atbench "${atbench[@]}" --method safepred --env-file "$ipiguard_root/.env" --include-tools
+        ;;
     traces-train)
         : "${TRACES_RUN:?Set TRACES_RUN to a new directory under results/}"
-        "${python[@]}" -m agentguard.traces_train --data "$data" --split-manifest "$split" \
-            --observer models/qwen3-4b-observer --out-dir "$TRACES_RUN" 2>&1 | tee "results/traces-train-$run_id.log"
+        shift
+        "${python[@]}" -m agentguard.traces_train --data "$data" --split-manifest "${TRACES_SPLIT:-$split}" \
+            --observer models/qwen3-4b-observer --out-dir "$TRACES_RUN" "$@" 2>&1 | tee "results/traces-train-$run_id.log"
         ;;
     atbench-traces)
         : "${TRACES_RUN:?Set TRACES_RUN to the completed training directory}"
-        run atbench-traces atbench "${atbench[@]}" --method traces --traces-run "$TRACES_RUN"
+        run atbench-traces atbench --data "$data" --split-manifest "${TRACES_SPLIT:-$split}" \
+            --method traces --traces-run "$TRACES_RUN"
         ;;
     dojo)
         method=${2:?Provide a guard method}
@@ -61,7 +70,7 @@ case "${1:-}" in
         done
         ;;
     *)
-        echo "Usage: $0 {atbench-agentdog|atbench-deepseek|atbench-safepred|traces-train|atbench-traces|dojo METHOD MODE [SUITE ...]}" >&2
+        echo "Usage: $0 {atbench-agentdog|atbench-deepseek|atbench-deepseek-author|atbench-safepred|atbench-safepred-tools|traces-train|atbench-traces|dojo METHOD MODE [SUITE ...]}" >&2
         exit 2
         ;;
 esac

@@ -137,7 +137,9 @@ def load_agentdog(
     return AgentDoG(generate, prompt=prompt), getattr(model.config, "_commit_hash", None) or revision
 
 
-def load_deepseek_judge(model: str, max_tokens: int) -> AgentDoG:
+def load_deepseek_judge(
+    model: str, max_tokens: int, *, prompt: Callable[[Review], str] = agentdog_prompt,
+) -> AgentDoG:
     from openai import OpenAI
 
     client = OpenAI(timeout=180, max_retries=1)
@@ -152,4 +154,4 @@ def load_deepseek_judge(model: str, max_tokens: int) -> AgentDoG:
         )
         return result.choices[0].message.content or ""
 
-    return AgentDoG(generate, judge_name="DeepSeek")
+    return AgentDoG(generate, judge_name="DeepSeek", prompt=prompt)

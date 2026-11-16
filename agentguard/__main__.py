@@ -59,6 +59,7 @@ def main() -> int:
     atbench.add_argument("--split", choices=("train", "calibration", "heldout"), default="heldout")
     atbench.add_argument("--replay", action="store_true", help="review recorded proposals in order")
     atbench.add_argument("--agentdog-author-prompt", type=Path, help="use the authors' coarse-grained prompt file")
+    atbench.add_argument("--include-tools", action="store_true", help="include ATBench tool schemas in the guard input")
     atbench.add_argument("--case-id", action="append", default=[])
     atbench.add_argument("--limit", type=positive)
     dojo = commands.add_parser("agentdojo", help="evaluate the task agent with a runtime guard")
@@ -86,8 +87,8 @@ def main() -> int:
     author_prompt_path = getattr(args, "agentdog_author_prompt", None)
     prompt = agentdog_prompt
     if author_prompt_path:
-        if args.method != "agentdog" or args.replay or args.config != "ATBench":
-            parser.error("--agentdog-author-prompt requires AgentDoG full-trajectory scoring on ATBench")
+        if args.method not in ("agentdog", "deepseek") or args.replay or args.config != "ATBench":
+            parser.error("--agentdog-author-prompt requires AgentDoG or DeepSeek full-trajectory scoring on ATBench")
         template_bytes = author_prompt_path.read_bytes()
         prompt = partial(author_trajectory_prompt, template_bytes.decode("utf-8"))
     if args.method == "agentdog":
@@ -121,19 +122,21 @@ def main() -> int:
                 parser.error("--split-manifest requires ATBench and excludes --case-id and --limit")
             split = read_split(args.split_manifest)
             case_ids = list(map(str, split["splits"][args.split]))
-        data_sha, cases = read_rows(args.data, args.config, case_ids, args.limit, include_tools=bool(author_prompt_path))
+        include_tools = args.include_tools or bool(author_prompt_path)
+        if include_tools and (args.method == "traces" or args.config != "ATBench"):
+            parser.error("--include-tools requires a prompt-based method on ATBench")
+        data_sha, cases = read_rows(args.data, args.config, case_ids, args.limit, include_tools=include_tools)
         if split and data_sha != split["source_sha256"]:
             parser.error("ATBench source SHA-256 does not match the split manifest")
         metadata.update(dataset_sha256=data_sha, split=args.split if split else "test",
                         split_id=split["id"] if split else None,
                         protocol="pre_action_replay" if replay else "full_trajectory")
+        if include_tools:
+            metadata["tool_information"] = "tool_used:name,description,parameters"
         if author_prompt_path:
             metadata.update(
                 prompt_variant="agentdog-v1.5-author-coarse",
                 prompt_sha256=sha256(template_bytes).hexdigest(),
-                tool_information="tool_used:name,description,parameters",
-                guard_thinking=False,
-                guard_do_sample=False,
             )
         env_file = args.env_file
     else:
@@ -168,8 +171,10 @@ def main() -> int:
             args.guard_model, args.revision, args.device, args.max_new_tokens, prompt=prompt,
         )
         metadata["guard_dtype"] = "float32" if args.device == "cpu" else "bfloat16"
+        if author_prompt_path:
+            metadata.update(guard_thinking=False, guard_do_sample=False)
     elif args.method == "deepseek":
-        guard = load_deepseek_judge(args.guard_model, args.max_new_tokens)
+        guard = load_deepseek_judge(args.guard_model, args.max_new_tokens, prompt=prompt)
         metadata.update(guard_temperature=DEEPSEEK_JUDGE_TEMPERATURE, guard_thinking=False)
     elif args.method == "safepred":
         guard = load_safepred(args.guard_model, args.max_new_tokens)
@@ -191,7 +196,8 @@ def main() -> int:
     with args.output.open("x", encoding="utf-8", newline="\n") as output:
         write_record(output, metadata)
         if args.benchmark == "atbench":
-            summary = run_atbench(guard, cases, output, replay=replay)
+            prefix_threshold = trace_run["threshold"] if args.method == "traces" and not replay else None
+            summary = run_atbench(guard, cases, output, replay=replay, prefix_threshold=prefix_threshold)
         else:
             summary = run_agentdojo(args, guard, output)
     print(json_text(summary))

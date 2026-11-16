@@ -1,6 +1,6 @@
 # AgentGuard 基线实验
 
-核对日期为 2026-11-15。正式任务在 `/data1/yaoziao/agentguard` 串行运行，本地模型使用一张 GPU。
+核对日期为 2026-11-16。已完成的正式任务在 `/data1/yaoziao/agentguard` 串行运行，本地模型使用一张 GPU。
 
 ## 数据和统计口径
 
@@ -27,12 +27,13 @@
 
 ### ATBench
 
-四组使用相同的 200 条留出轨迹，最终样本错误数均为 0。
+各组使用相同的 200 条留出轨迹，最终样本错误数均为 0。
 
 | 方法 | 评分方式 | F1 ↑ | Recall ↑ | FPR ↓ | 平均审核耗时 ↓ |
 |---|---|---:|---:|---:|---:|
 | DeepSeek-v4-pro 直接判别 | 完整轨迹 | 48.72% | 38.38% | 18.81% | 9.780 秒 |
-| AgentDoG 1.5 4B | 完整轨迹 | 64.76% | 68.69% | 42.57% | 8.299 秒 |
+| AgentDoG 1.5 4B · 原适配 | 完整轨迹 | 64.76% | 68.69% | 42.57% | 8.299 秒 |
+| AgentDoG 1.5 4B · 作者输入格式 | 完整轨迹，含工具说明 | 73.49% | 79.80% | 36.63% | 17.525 秒 |
 | SafePred-prompt | 逐步回放，首次拦截判为危险 | 65.28% | 94.95% | 94.06% | 10.148 秒 |
 | TRACES | 完整轨迹，按末状态评分 | 81.34% | 85.86% | 24.75% | 0.243 秒 |
 
@@ -40,7 +41,9 @@
 
 AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 AgentGuard 的原输入模板。复跑使用 `--agentdog-author-prompt vendor/AgentDoG/prompts/v1.5/coarse_grained_moderation.txt`，采用作者公开的粗粒度提示及角色标记，将数据的 `tool_used` 映射为可用工具。模板来自作者仓库 `c8d803f267a43ec0e103a651265f50f1ff4456d5`。 [论文表 2](https://arxiv.org/html/2605.29801#S3.T2) · [作者推理示例](https://github.com/AI45Lab/AgentDoG/blob/c8d803f267a43ec0e103a651265f50f1ff4456d5/examples/getting_started_v1_5.md#coarse-grained-moderation)
 
-512 token 试跑 `20261115_220939` 因判定格式错误提前结束。预留样本 1 在 512 token 被截断，到第 534 token 得到有效判定；预留样本 184 在 402 token 得到有效判定。正式复跑 `20261115_221521` 使用同一 4B 权重、同一 200 条留出轨迹、BF16、贪心解码、关闭 thinking，输出上限改为 1,024 token。结果文件为 `atbench-agentdog-author-heldout-1024-20261115_221521.jsonl`，结果待汇总。
+512 token 试跑 `20261115_220939` 因判定格式错误提前结束。预留样本 1 在 512 token 被截断，到第 534 token 得到有效判定。预留样本 184 在 402 token 得到有效判定。正式复跑沿用同一 4B 权重、同一 200 条留出轨迹、BF16、贪心解码和关闭 thinking，输出上限改为 1,024 token。
+
+复跑于 2026-11-15 23:13（北京时间）结束，结果为 `atbench-agentdog-author-heldout-1024-20261115_221521.jsonl`。TP/FP/TN/FN 为 79/37/64/20，200 条均有效。较原适配 F1 提升 8.73 个百分点，Recall 提升 11.11 个百分点，FPR 下降 5.94 个百分点。差异涵盖提示词、轨迹格式、工具信息和输出上限。论文表 2 是外部参考。
 
 ### AgentDojo
 

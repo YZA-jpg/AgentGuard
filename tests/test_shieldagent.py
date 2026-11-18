@@ -1,10 +1,21 @@
 import unittest
 
 from agentguard.guard import GuardError, Review
-from agentguard.shieldagent_eval import configure_context, format_atbench, parse_answer
+from agentguard.shieldagent_eval import configure_context, encode_bounded_prompt, format_atbench, parse_answer
 
 
 class ShieldAgentTests(unittest.TestCase):
+    def test_truncation_preserves_the_assistant_boundary_and_budget(self):
+        class Tokenizer:
+            def __call__(self, text, **kwargs):
+                return {"input_ids": list(text)}
+        suffix = "<|im_end|>\n<|im_start|>assistant\n"
+        prompt = "<|im_start|>user\n" + "x" * 200 + suffix
+        ids, full_length = encode_bounded_prompt(Tokenizer(), prompt, 80)
+        self.assertEqual(len(ids), 80)
+        self.assertEqual(full_length, len(prompt))
+        self.assertTrue("".join(ids).endswith(suffix))
+        self.assertTrue("".join(ids).startswith("<|im_start|>user\n"))
     def test_yarn_preserves_checkpoint_frequency_and_native_config_is_unchanged(self):
         from types import SimpleNamespace
         config = SimpleNamespace(rope_parameters={"rope_type": "default", "rope_theta": 1000000},

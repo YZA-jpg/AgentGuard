@@ -26,6 +26,17 @@ def configure_context(config, mode):
     return config
 
 
+def encode_bounded_prompt(tokenizer, prompt, limit):
+    ids = tokenizer(prompt, truncation=False)["input_ids"]
+    if len(ids) <= limit:
+        return ids, len(ids)
+    suffix = "<|im_end|>\n<|im_start|>assistant\n"
+    tail = tokenizer(suffix, add_special_tokens=False)["input_ids"]
+    if not prompt.endswith(suffix) or limit <= len(tail):
+        raise ValueError("Cannot preserve the author's assistant generation boundary")
+    return ids[:limit - len(tail)] + tail, len(ids)
+
+
 def author_functions(root):
     revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     changes = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"], text=True)
@@ -109,6 +120,7 @@ def main():
     parser.add_argument("--reuse-results", type=Path)
     parser.add_argument("--context-mode", choices=("native32k", "yarn128k"), default="native32k")
     parser.add_argument("--only-overlong", action="store_true")
+    parser.add_argument("--case-id", action="append", default=[])
     args = parser.parse_args()
     import torch
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -121,6 +133,11 @@ def main():
     if args.smoke:
         calibration = set(map(str, split["splits"]["calibration"]))
         cases = [next(c for c in cases if c[0] in calibration and c[1] == label) for label in (0, 1)]
+    if args.case_id:
+        wanted = set(args.case_id)
+        if wanted - {c[0] for c in cases}:
+            raise ValueError("Unknown case ID")
+        cases = [c for c in cases if c[0] in wanted]
     directory = args.out_dir.resolve()
     directory.mkdir(parents=True, exist_ok=True)
     output_path = directory / "atbench.jsonl"
@@ -160,7 +177,7 @@ def main():
     metadata["prefill_chunk_size"] = args.prefill_chunk_size
     metadata.update(context_mode=args.context_mode, input_limit=input_limit,
                     rope_parameters=config.rope_parameters, only_overlong=args.only_overlong,
-                    truncation_side=tokenizer.truncation_side)
+                    truncation_side="right_body_preserve_chat_suffix", preserve_chat_wrapper=True)
     metadata["adapter_differences"].append("Full-context prefill processed in 1024-token chunks to fit shared GPU memory")
     records = []
     if args.reuse_results:
@@ -176,6 +193,8 @@ def main():
             if record.get("record_type") != "case" or record["status"] != "ok":
                 continue
             if record["input_tokens"] > input_limit:
+                continue
+            if record["full_input_tokens"] > input_limit and not previous_header.get("preserve_chat_wrapper"):
                 continue
             label, context = expected[record["case_id"]]
             dialog, env = format_atbench(context)
@@ -197,14 +216,14 @@ def main():
             started = perf_counter()
             dialog, env = format_atbench(context)
             prompt = author["create_ipt"](dialog, env, "qwen")
-            full = tokenizer(prompt, truncation=False)["input_ids"]
-            inputs = tokenizer([prompt], return_tensors="pt", truncation=True,
-                               max_length=input_limit, padding=True).to(args.device)
+            bounded, full_length = encode_bounded_prompt(tokenizer, prompt, input_limit)
+            input_ids = torch.tensor([bounded], device=args.device)
+            inputs = {"input_ids": input_ids, "attention_mask": torch.ones_like(input_ids)}
             with torch.inference_mode():
                 ids = model.generate(**inputs, eos_token_id=tokenizer.eos_token_id,
                                      pad_token_id=tokenizer.pad_token_id,
                                      prefill_chunk_size=args.prefill_chunk_size, **author["generation_config"])
-            generated = ids[0, inputs.input_ids.shape[1]:]
+            generated = ids[0, input_ids.shape[1]:]
             response = tokenizer.decode(generated, skip_special_tokens=True)
             try:
                 prediction = parse_answer(response, author["format_resp"])
@@ -213,8 +232,8 @@ def main():
                 prediction, status = None, "error"
             record = {"record_type": "case", "case_id": case_id, "label": label,
                       "prediction": prediction, "status": status, "response": response,
-                      "input_prompt": prompt, "input_tokens": inputs.input_ids.shape[1],
-                      "full_input_tokens": len(full), "input_truncated": inputs.input_ids.shape[1] < len(full),
+                      "input_prompt": prompt, "input_tokens": input_ids.shape[1],
+                      "full_input_tokens": full_length, "input_truncated": input_ids.shape[1] < full_length,
                       "output_tokens": len(generated), "latency_seconds": perf_counter() - started,
                       "prefill_chunk_size": args.prefill_chunk_size}
             records.append(record)

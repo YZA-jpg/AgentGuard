@@ -13,6 +13,7 @@ mkdir -p "$run"
 exec > >(tee -a "$run/batch.log") 2>&1
 py=(env -u LD_LIBRARY_PATH .venv/bin/python)
 "${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/smoke" --smoke
+"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/long-native-check" --case-id 426
 extra=()
 if [[ -n ${SHIELD_REUSE_RESULTS:-} ]]; then extra=(--reuse-results "$SHIELD_REUSE_RESULTS"); fi
 "${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/formal" "${extra[@]}"

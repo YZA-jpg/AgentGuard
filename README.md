@@ -49,6 +49,12 @@ For each proposed action, the runtime records the guard verdict and latency. `HO
 
 Summaries report mean seconds per successful review. ATBench labels are trajectory-level. AgentDojo reports ASR and utility through its task checkers. A recovery-specific FPR requires labeled recovery actions.
 
+## DreamGuard method reproduction
+
+`bash scripts/run-dreamguard-atbench.sh` trains an independent DreamGuard implementation on the public SafetyDrift training split, calibrates on its original test split, and evaluates the frozen ATBench heldout split. Set `DREAMGUARD_GPU` to the GPU index. The encoder snapshot is `models/qwen3-4b-instruct-2507`.
+
+Each run records code hashes, data hashes, calibration settings and implementation differences in `manifest.json`. Metrics and per-trajectory risk scores are written to `atbench.jsonl`. The detailed protocol is in [the reproduction plan](docs/plans/2026-11-17-shieldagent-dreamguard-safetydrift.md).
+
 ## Tests
 
 ```bash

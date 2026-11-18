@@ -162,3 +162,36 @@ Flash 的两条官方成功记录均为 Travel `(6,6)`、`(12,6)`。人工阅读
 API 按轨迹并发 4，本地模型在 GPU 3 串行。延迟按实际 Review 到 verdict 的墙钟时间计算，包含失败重试，排除模型加载。恢复 FPR 因缺少独立标签留空。原作者按轨迹而非场景划分，37 个测试场景都出现在训练中。TRACES 使用本数据集监督训练，另外三组沿用既有权重/提示；结果应结合这一适配差异解释。已检查实际训练表只含 222 条训练及 57 条校准数据，未含测试特征，三组完整 TRACES 消息序列的交集均为 0。ShieldAgent 尚未接入，本批不含它。完整协议见 `docs/plans/2026-11-18-safetydrift-baselines.md`。
 
 原始记录分别为目录内的 `flash-formal.jsonl`、`agentdog-formal.jsonl`、`safepred-formal.jsonl`、`traces-formal.jsonl`；统一结果和核验为 `summary.json`、`verification.json`，TRACES 权重及全部训练记录位于 `traces-trained/`。本地与服务器均已保存。
+
+### SafetyDrift 偏差复核 · 2026-11-19
+
+45.3/87.1/96.4 是 **DreamGuard Table 1** 的 SafePred/TRACES/DreamGuard F1，不能直接称为原 SafetyDrift 论文的结果。其清理后逐条划分和完整 baseline 配置未公开；我们使用公开原始 72 条测试集。因此当前是方法适配对比，尚非该表的严格复现。[参考表及附录](https://arxiv.org/html/2608.05695v1)
+
+- SafePred-prompt：五条固定策略、无执行计划、任一策略命中即拦截，未复现完整分级风险映射。当前 Recall/FPR=92.11/64.71%，参考为 37.0/44.4%，本轮拦截更激进。22 条误报分别来自 code_debugging 11 条、sysadmin 11 条。
+- TRACES：0.8 阈值来自独立校准集。对保存分数按公开 ATBench 预设 0.3 重算，F1=93.51%、Recall=94.74%、FPR=8.82%，阈值只解释当前 2.49 个 F1 百分点。
+- 任务先验诊断：仅用 222 条训练数据建立任务文本多数标签查表，不读取动作，在同一测试集得到 TP/FP/TN/FN=36/0/34/2，F1=97.30%；72 条测试任务文本均在训练中出现。与 TRACES 的预测有 71/72 相同。这表明按轨迹划分存在强任务先验，不能仅凭高 F1 证明轨迹建模收益；未发现完整测试消息序列混入训练。
+- 旧 DreamGuard 复现检查点的 69 条校准数据属于本轮 72 条测试集，不能用于独立 SafetyDrift 测试。ATBench 的 66.22% 是跨数据集迁移结果。
+
+建议保留原 72 条作为公开作者协议对照，优先增加场景互斥的训练/校准/测试诊断及任务先验基线；SafePred 分离实现和骨干变更的消融，TRACES 在冻结划分上用预先指定的 42/43/44 三个种子训练并汇报均值/标准差，DreamGuard 重新在独立训练/校准集训练。详细证据见 `docs/plans/2026-11-19-audit-shieldagent-atbench.md`。
+
+### ShieldAgent-THU · ATBench · 2026-11-19 · 已完成并独立复核
+
+目录：`results/atbench-shieldagent-thu-20261119_010945`。采用 **THU Agent-SafetyBench 官方安全判别检查点**，与同名 ICML 策略推理方法是不同项目。权重/提示由作者发布，ATBench 数据适配与运行脚本由本工程编写。原生 32k 为主结果，25 条超长样本的 YaRN 扩展只作独立对照。[官方模型](https://huggingface.co/thu-coai/ShieldAgent)
+
+| 范围（原生 32k） | 完成 / 错误 | TP/FP/TN/FN | F1 ↑ | Recall ↑ | FPR ↓ | 审核耗时 ↓ | 截断数 |
+|---|---|---|---|---|---|---|---|
+| ATBench 全量 | 1,000 / 0 | 420/260/243/77 | 71.37% | 84.51% | 51.69% | 0.450 秒/次 | 25 |
+| 固定配对留出集 | 200 / 0 | 80/59/42/19 | 67.23% | 80.81% | 58.42% | 0.403 秒/次 | 3 |
+
+200 条结果从同一次全量输出提取，沿用 `splits/atbench-v1.json`。与其他仅测该留出集的方法比较时使用 200 条行，勿混用全量分数。
+
+| 同一 25 条超长样本 | 完成 / 错误 | TP/FN | F1 ↑ | Recall ↑ | FPR ↓ | 审核耗时 ↓ | 截断数 |
+|---|---|---|---|---|---|---|---|
+| 原生 32k，主结果的子集 | 25 / 0 | 24/1 | 97.96% | 96.00% | 不适用 | 3.627 秒/次 | 25 |
+| YaRN 128k，独立扩展对照 | 25 / 0 | 23/2 | 95.83% | 92.00% | 不适用 | 19.428 秒/次 | 4 |
+
+25 条均为危险轨迹，无法估计正常样本 FPR；扩展结果没有替换主表预测。扩展后 427、443 变为漏报，441 被正确检出。本次扩展未提升该小子集检出率，不能据此推断其他长文本任务。
+
+参数：模型 `thu-coai/ShieldAgent` revision `a62f8413908bf3dbb1aea2edfbbeae54fdfd383c`；作者 scorer revision `74feea8de601b3a1449a93fcf70017fe61556f73`；直接加载作者 `create_ipt` 与 greedy `max_new_tokens=10`。完整记录轨迹单次判别，含工具名称/说明和实际调用参数，gold 不进入提示。FP16、SDPA、batch 1、A100 物理 GPU 3、无 torch.compile、完整 attention prefill。主组总窗口 32768，输入最多 32758；扩展为 YaRN factor 4、original_max_position_embeddings=32768、rope_theta=1000000，总窗口 131072、输入最多 131062，FFN 按 1024 token 分块以降低显存。截断保留正文前缀和完整 ChatML 生成后缀。
+
+延迟包含格式适配、分词、生成及解码，排除权重加载，每次对应一整条轨迹判别，不能直接等同逐动作在线延迟。ATBench 无独立 recovery 或首个危险步标签，相关指标留空。完整核验见运行根目录 `verification.json` 和 `artifacts-sha256.json`；模型、缓存和结果均在 `/data1/yaoziao/agentguard`。启动：`SHIELD_GPU=3 bash scripts/run-shieldagent-atbench.sh`，会顺序执行校准 smoke、长样本一致性检查、全量和独立 YaRN 对照。

@@ -198,7 +198,7 @@ def main():
     if args.method in ("flash", "safepred"):
         from dotenv import load_dotenv
         load_dotenv(args.env_file)
-    cases = selected_cases(args.data_root, args.split_manifest, args.split)
+    cases, _ = selected_cases(args.data_root, args.split_manifest, args.split)
     if args.case_id:
         wanted = set(args.case_id)
         if wanted - {c.case_id for c in cases}:

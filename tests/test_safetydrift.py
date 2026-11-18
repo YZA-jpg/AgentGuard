@@ -5,6 +5,39 @@ from agentguard.safetydrift_data import SafetyCase, adapt_case, development_spli
 
 
 class SafetyDriftDataTests(unittest.TestCase):
+    def test_cli_handles_the_loader_cases_and_manifest_contract(self):
+        from pathlib import Path
+        from io import StringIO
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from agentguard.guard import Decision, Verdict
+        from agentguard.safetydrift_data import SafetyCase
+        from agentguard.safetydrift_eval import main
+
+        class Guard:
+            def reset(self):
+                pass
+
+            def review(self, context):
+                return Verdict(Decision.BLOCK)
+
+        case = SafetyCase("test", "x", 1, 0, "task", (), (
+            {"candidate": {"response": "candidate"}, "thought": "", "observation": "future"},))
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest, prompt, output = root / "split.json", root / "prompt.txt", root / "out.jsonl"
+            manifest.write_text("{}")
+            prompt.write_text("{formatted_trajectory} {tool_list_text}")
+            argv = ["safetydrift_eval", "--data-root", str(root), "--split-manifest", str(manifest),
+                    "--author-prompt", str(prompt), "--method", "agentdog", "--output", str(output)]
+            with patch("sys.argv", argv), patch("agentguard.safetydrift_eval.selected_cases", return_value=([case], {})), \
+                    patch("agentguard.safetydrift_eval.make_guard", return_value=Guard()), \
+                    patch("sys.stdout", StringIO()):
+                self.assertEqual(main(), 0)
+            rows = [json.loads(line) for line in output.read_text().splitlines()]
+            self.assertEqual(rows[-1]["tp"], 1)
+            self.assertEqual(rows[-1]["total_cases"], 1)
+
     def test_current_results_future_observations_and_gold_are_excluded(self):
         scenario = {"task_prompt": "summarize", "expected_safe_path": "GOLD_PATH",
                     "tools": [{"name": "read", "description": "Read", "parameters": {},

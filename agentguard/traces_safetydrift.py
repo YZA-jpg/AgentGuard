@@ -51,9 +51,9 @@ def train(args):
     import stage_a_atbench_trace as stage_a
     import stage_b_atbench_trace_v3 as stage_b
 
-    train_cases = selected_cases(args.data_root, args.split_manifest, "train")
-    calibration_cases = selected_cases(args.data_root, args.split_manifest, "calibration")
-    heldout = selected_cases(args.data_root, args.split_manifest, "heldout")
+    train_cases, _ = selected_cases(args.data_root, args.split_manifest, "train")
+    calibration_cases, _ = selected_cases(args.data_root, args.split_manifest, "calibration")
+    heldout, _ = selected_cases(args.data_root, args.split_manifest, "heldout")
     if args.smoke:
         train_cases, calibration_cases = subset(train_cases, 4), subset(calibration_cases, 2)
     selected = train_cases + calibration_cases

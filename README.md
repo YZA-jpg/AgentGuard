@@ -55,6 +55,14 @@ Summaries report mean seconds per successful review. ATBench labels are trajecto
 
 Each run records code hashes, data hashes, calibration settings and implementation differences in `manifest.json`. Metrics and per-trajectory risk scores are written to `atbench.jsonl`. The detailed protocol is in [the reproduction plan](docs/plans/2026-11-17-shieldagent-dreamguard-safetydrift.md).
 
+## SafetyDrift
+
+`SAFETYDRIFT_GPU=3 bash scripts/run-safetydrift-baselines.sh` runs Flash direct classification, AgentDoG 1.5 4B, SafePred-prompt and TRACES on the pinned public release. All methods review the existing Claude Sonnet trajectories; this does not collect new Flash agent trajectories. The author test set stays at 72 cases (38 unsafe, 34 safe). After removing six duplicate development records, 222 cases train TRACES and 57 calibrate/select it. The original test IDs, source hashes and duplicate removals are frozen in `splits/safetydrift-public-v1.json`.
+
+TRACES reuses the author's unmodified Stage-A/Stage-B code, official Qwen3-4B layer-32 observer, K=8 and 30/30 epochs. No matching author SafetyDrift checkpoint was found. Every source decision, including a text response, is represented at its action boundary. This dataset adapter and calibration are recorded separately from author-published results. AgentDoG and Flash share the author coarse prompt with a documented pre-action wrapper; SafePred keeps the existing prompt adaptation.
+
+The launcher first checks two calibration cases per model, then evaluates all 72 test cases. API trajectories use four workers; local models run serially on one GPU. Each JSONL stores visible inputs, model outputs, retries and wall-clock audit latency. Summaries report trajectory F1/recall/FPR plus PHIR and MAS against the author's first risk-level-4 boundary. Recovery FPR remains null because the release has no dedicated recovery labels. See [the implementation plan](docs/plans/2026-11-18-safetydrift-baselines.md).
+
 ## Tests
 
 ```bash

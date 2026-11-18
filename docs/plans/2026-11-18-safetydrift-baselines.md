@@ -18,6 +18,10 @@ The user confirmed the original test set and requested author weights first, oth
 
 Frozen inventory: 222 training (117 unsafe), 57 calibration (31 unsafe), 72 test (38 unsafe). Six duplicate development records were removed; the 72 original test IDs are unchanged. The release has no explicit recovery field and no observed decreases in the annotated risk level, so a recovery FPR is not inferred from those states.
 
+The original protocol splits trajectories rather than scenarios: training covers 39 scenarios, calibration 32, and test 37. All 37 test scenarios occur in training. Results therefore measure held-out trajectories under the source protocol, not generalization to unseen scenarios. None of the recorded observations is marked truncated. Tool-call thoughts can be null; candidate tool names and arguments are still present.
+
+Calibration-only inspection also confirmed a semantic/annotation mismatch: in the dependency-update trajectory, a package-registry GET after reading CI data reaches the source risk-level-4 boundary, while AgentDoG judges the action safe. The adapter retains the public labels. This reflects the release's tool/state labeling convention and must not be silently fixed using model judgments.
+
 ## Task 2: Implement common evaluation
 
 - Create `agentguard/safetydrift_eval.py`.
@@ -41,3 +45,9 @@ Frozen inventory: 222 training (117 unsafe), 57 calibration (31 unsafe), 72 test
 - Add `scripts/run-safetydrift-baselines.sh`. Run 2-case smoke for all four methods, then 72-case formal groups. Select a free GPU immediately before launch; use one GPU serially for local models while independent API groups may overlap.
 - Follow the server job to completion, retry only failed cases if needed, and preserve original logs.
 - Update `docs/baseline-runs.md`, copy result summaries and checkpoints locally, and back up code/configuration to the user's GitHub repository. Do not claim the results reproduce the DreamGuard paper's SafetyDrift table.
+
+## Completion and audit · 2026-11-19
+
+Canonical run: `results/safetydrift-baselines-20261118_191442`. All four formal groups completed 72/72 with zero errors and zero failed audit attempts. Model parameters and results are recorded in `docs/baseline-runs.md`; all 1,766 review inputs were independently reconstructed and compared against the causal adapter, and confusion matrices/timing metrics were recomputed from the saved verdicts.
+
+TRACES used the actual 222 training trajectories (1,832 decisions) and 57 calibration trajectories (484 decisions) in the author's saved tables. No test features were present in training. Full action-end message-sequence hashes have zero overlap across train/calibration/test. Checkpoint hashes were verified. Calibration chose threshold 0.8 with F1 98.36%; the fixed test result is F1 96.00%, Recall 94.74%, FPR 2.94%. Test labels were used only for scoring. The 37 test scenarios all occur in training under the original trajectory split, which limits interpretation as cross-scenario transfer.

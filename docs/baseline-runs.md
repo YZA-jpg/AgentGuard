@@ -143,3 +143,22 @@ Flash 的两条官方成功记录均为 Travel `(6,6)`、`(12,6)`。人工阅读
 全部 200 条均触发拦截，该结果表现为过度拦截。源域校准集的 F1 为 98.70%、Recall 为 100%、FPR 为 3.23%。校准得到 BLOCK 阈值 0.00072298、HOLD 阈值 0.68865194。ATBench 安全轨迹的最大 hazard 分数最小值为 0.00112425，全部超过源域 BLOCK 阈值。重载 checkpoint 独立重算的校准与测试分类结果均一致。
 
 延迟由文本首次编码提取耗时（重复文本命中缓存计零）与逐步 RSSM 推理耗时合计，分别为 0.05831 和 0.000922 秒/次，未重新测量在线端到端调用。原论文采用作者清理后的训练与校准划分、H100 硬件，本轮为独立实现的 ATBench 迁移测试。源域校准集参与了融合参数选择，其指标不能作为独立测试成绩。PHIR/MAS 因 ATBench 缺少首个危险步金标留空。详细差异见 `docs/plans/2026-11-17-shieldagent-dreamguard-safetydrift.md`。
+
+### SafetyDrift · 2026-11-18 批次 · 已完成，2026-11-19 复核
+
+目录：`results/safetydrift-baselines-20261118_191442`。固定原作者 72 条测试轨迹（38 危险、34 安全），输入是作者已采集的 Claude Sonnet 轨迹。Flash 作为直接判别基线，不重新生成任务轨迹。所有方法采用执行前逐步回放，以首次拦截判轨迹危险，首个危险步沿用作者 loader 的首次 risk_level=4。当前动作结果和风险金标不进入审核输入。
+
+| 方法 | 完成情况 | F1 ↑ | Recall ↑ | FPR ↓ | PHIR ↑ | MAS ↑ | 审核耗时 ↓ |
+|---|---|---|---|---|---|---|---|
+| Flash 直接判别 | 72/72，错误 0，已独立复核 | 26.92% | 18.42% | 20.59% | 18.42% | 2.43 步 | 4.442 秒/次 |
+| AgentDoG 1.5 4B | 72/72，错误 0，已独立复核 | 44.78% | 39.47% | 41.18% | 39.47% | 2.73 步 | 13.380 秒/次 |
+| SafePred-prompt | 72/72，错误 0，已独立复核 | 73.68% | 92.11% | 64.71% | 65.79% | 1.96 步 | 9.333 秒/次 |
+| TRACES，作者代码在 SafetyDrift 训练 | 72/72，错误 0，已独立复核 | 96.00% | 94.74% | 2.94% | 94.74% | 2.78 步 | 0.081 秒/次 |
+
+四组 TP/FP/TN/FN 依次为 Flash 7/7/27/31、AgentDoG 15/14/20/23、SafePred-prompt 35/22/12/3、TRACES 36/1/33/2；审核次数依次为 511、444、389、422。全部 1,766 次可见输入、首次拦截和汇总已独立核验，错误及失败重试数均为 0。Flash 返回模型 ID 为 `deepseek-v4-flash-0731`，API token 输入/输出为 949,481/201,661；SafePred 返回模型 ID 为 `deepseek-v4-pro`，API token 输入/输出为 625,920/90,167。本地模型没有 API token 统计。
+
+参数：Flash temperature=0、thinking 关闭、1024 tokens；AgentDoG 使用官方 4B revision `3193b58d0c8924f5b5a79eb99cd31918e327024c`、BF16、greedy、1024 tokens。两者使用作者 coarse 提示模板并增加未执行候选动作说明。SafePred-prompt 沿用 DeepSeek-v4-pro、temperature=0.3、2048 tokens 和既有固定策略；历史窗口沿用最近 7 条 agent/assistant 消息起的片段。TRACES 没有找到对应的作者发布权重，复用固定版本作者 Stage-A/Stage-B 代码，在去重后的 222 条训练、57 条校准上训练和选阈值；Qwen3-4B 第 32 层、FP16 编码器、FP32 审核头、7500 token 输入上限、K=8、30/30 epoch、batch 32、LR 5e-4、seed 42。校准 F1 为 98.36%，最终阈值 0.8，仅由校准集确定。
+
+API 按轨迹并发 4，本地模型在 GPU 3 串行。延迟按实际 Review 到 verdict 的墙钟时间计算，包含失败重试，排除模型加载。恢复 FPR 因缺少独立标签留空。原作者按轨迹而非场景划分，37 个测试场景都出现在训练中。TRACES 使用本数据集监督训练，另外三组沿用既有权重/提示；结果应结合这一适配差异解释。已检查实际训练表只含 222 条训练及 57 条校准数据，未含测试特征，三组完整 TRACES 消息序列的交集均为 0。ShieldAgent 尚未接入，本批不含它。完整协议见 `docs/plans/2026-11-18-safetydrift-baselines.md`。
+
+原始记录分别为目录内的 `flash-formal.jsonl`、`agentdog-formal.jsonl`、`safepred-formal.jsonl`、`traces-formal.jsonl`；统一结果和核验为 `summary.json`、`verification.json`，TRACES 权重及全部训练记录位于 `traces-trained/`。本地与服务器均已保存。

@@ -16,6 +16,18 @@ class ShieldAgentTests(unittest.TestCase):
         self.assertEqual(full_length, len(prompt))
         self.assertTrue("".join(ids).endswith(suffix))
         self.assertTrue("".join(ids).startswith("<|im_start|>user\n"))
+
+    def test_ffn_chunking_keeps_the_same_tokenwise_function(self):
+        import torch
+        from types import SimpleNamespace
+        from agentguard.shieldagent_eval import chunk_feedforward
+        torch.manual_seed(4)
+        mlp = torch.nn.Sequential(torch.nn.Linear(8, 16), torch.nn.SiLU(), torch.nn.Linear(16, 8)).eval()
+        model = SimpleNamespace(model=SimpleNamespace(layers=[SimpleNamespace(mlp=mlp)]))
+        x = torch.randn(1, 11, 8)
+        expected = mlp(x)
+        chunk_feedforward(model, 3)
+        torch.testing.assert_close(mlp(x), expected)
     def test_yarn_preserves_checkpoint_frequency_and_native_config_is_unchanged(self):
         from types import SimpleNamespace
         config = SimpleNamespace(rope_parameters={"rope_type": "default", "rope_theta": 1000000},

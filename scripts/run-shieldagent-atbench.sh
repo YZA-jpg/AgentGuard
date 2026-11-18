@@ -13,8 +13,10 @@ mkdir -p "$run"
 exec > >(tee -a "$run/batch.log") 2>&1
 py=(env -u LD_LIBRARY_PATH .venv/bin/python)
 "${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/smoke" --smoke
-"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/long-native-check" --case-id 426
+"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/long-native-check" --case-id 426 --mlp-chunk-size 1024
 extra=()
 if [[ -n ${SHIELD_REUSE_RESULTS:-} ]]; then extra=(--reuse-results "$SHIELD_REUSE_RESULTS"); fi
-"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/formal" "${extra[@]}"
-"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/yarn-long25" --context-mode yarn128k --only-overlong
+status=0
+"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/formal" "${extra[@]}" || status=1
+"${py[@]}" -m agentguard.shieldagent_eval --out-dir "$run/yarn-long25" --context-mode yarn128k --only-overlong --mlp-chunk-size 1024 || status=1
+exit "$status"

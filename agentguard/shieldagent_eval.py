@@ -37,6 +37,20 @@ def encode_bounded_prompt(tokenizer, prompt, limit):
     return ids[:limit - len(tail)] + tail, len(ids)
 
 
+def chunk_feedforward(model, size):
+    """Limit token-independent FFN temporaries without changing attention/cache processing."""
+    import torch
+    for layer in model.model.layers:
+        original = layer.mlp.forward
+
+        def forward(hidden, original=original):
+            if hidden.shape[-2] <= size:
+                return original(hidden)
+            return torch.cat([original(part) for part in hidden.split(size, dim=-2)], dim=-2)
+
+        layer.mlp.forward = forward
+
+
 def author_functions(root):
     revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     changes = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"], text=True)
@@ -116,12 +130,14 @@ def main():
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--prefill-chunk-size", type=int, default=1024)
+    parser.add_argument("--prefill-chunk-size", type=int, default=0)
+    parser.add_argument("--mlp-chunk-size", type=int, default=0)
     parser.add_argument("--reuse-results", type=Path)
     parser.add_argument("--context-mode", choices=("native32k", "yarn128k"), default="native32k")
     parser.add_argument("--only-overlong", action="store_true")
     parser.add_argument("--case-id", action="append", default=[])
     args = parser.parse_args()
+    prefill_chunk_size = args.prefill_chunk_size if args.prefill_chunk_size > 0 else None
     import torch
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
@@ -162,6 +178,8 @@ def main():
     input_limit = config.max_position_embeddings - author["generation_config"]["max_new_tokens"]
     model = AutoModelForCausalLM.from_pretrained(args.model, config=config, dtype=dtype,
                                                 attn_implementation="sdpa").to(args.device).eval()
+    if args.mlp_chunk_size > 0:
+        chunk_feedforward(model, args.mlp_chunk_size)
     metadata = {"record_type": "run_metadata", "variant": "THU-ShieldAgent-official-checkpoint-ATBench-adapter",
                 "model_id": "thu-coai/ShieldAgent", "model_revision": MODEL_REVISION,
                 "author_revision": AUTHOR_REVISION, "author_scorer_sha256": source_hash,
@@ -174,11 +192,12 @@ def main():
                 "adapter_differences": ["ATBench roles and missing call IDs mapped to the author dialogue format",
                                         "SDPA, no torch.compile, batch 1 instead of author example batch 40",
                                         "Unambiguous Answer at end of output accepted without trailing newline"]}
-    metadata["prefill_chunk_size"] = args.prefill_chunk_size
+    metadata["prefill_chunk_size"] = prefill_chunk_size
+    metadata["mlp_chunk_size"] = args.mlp_chunk_size
     metadata.update(context_mode=args.context_mode, input_limit=input_limit,
                     rope_parameters=config.rope_parameters, only_overlong=args.only_overlong,
                     truncation_side="right_body_preserve_chat_suffix", preserve_chat_wrapper=True)
-    metadata["adapter_differences"].append("Full-context prefill processed in 1024-token chunks to fit shared GPU memory")
+    metadata["adapter_differences"].append("Original full attention prefill; optional token-independent FFN chunks")
     records = []
     if args.reuse_results:
         previous = [json.loads(line) for line in args.reuse_results.read_text(encoding="utf-8").splitlines()]
@@ -191,6 +210,8 @@ def main():
         expected = {case_id: (label, context) for case_id, label, context in cases}
         for record in previous:
             if record.get("record_type") != "case" or record["status"] != "ok":
+                continue
+            if record.get("prefill_chunk_size", previous_header.get("prefill_chunk_size")) != prefill_chunk_size:
                 continue
             if record["input_tokens"] > input_limit:
                 continue
@@ -222,7 +243,7 @@ def main():
             with torch.inference_mode():
                 ids = model.generate(**inputs, eos_token_id=tokenizer.eos_token_id,
                                      pad_token_id=tokenizer.pad_token_id,
-                                     prefill_chunk_size=args.prefill_chunk_size, **author["generation_config"])
+                                     prefill_chunk_size=prefill_chunk_size, **author["generation_config"])
             generated = ids[0, input_ids.shape[1]:]
             response = tokenizer.decode(generated, skip_special_tokens=True)
             try:
@@ -235,7 +256,7 @@ def main():
                       "input_prompt": prompt, "input_tokens": input_ids.shape[1],
                       "full_input_tokens": full_length, "input_truncated": input_ids.shape[1] < full_length,
                       "output_tokens": len(generated), "latency_seconds": perf_counter() - started,
-                      "prefill_chunk_size": args.prefill_chunk_size}
+                      "prefill_chunk_size": prefill_chunk_size, "mlp_chunk_size": args.mlp_chunk_size}
             records.append(record)
             write_record(out, record)
             if len(records) % 10 == 0 or len(records) == len(cases):

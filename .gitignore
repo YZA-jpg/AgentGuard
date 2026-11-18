@@ -8,6 +8,7 @@ __pycache__/
 data/
 models/
 vendor/
+/cache/
 results/
 *.jsonl
 *.log

@@ -63,6 +63,12 @@ TRACES reuses the author's unmodified Stage-A/Stage-B code, official Qwen3-4B la
 
 The launcher first checks two calibration cases per model, then evaluates all 72 test cases. API trajectories use four workers; local models run serially on one GPU. Each JSONL stores visible inputs, model outputs, retries and wall-clock audit latency. Summaries report trajectory F1/recall/FPR plus PHIR and MAS against the author's first risk-level-4 boundary. Recovery FPR remains null because the release has no dedicated recovery labels. See [the implementation plan](docs/plans/2026-11-18-safetydrift-baselines.md).
 
+## THU ShieldAgent on ATBench
+
+`SHIELD_GPU=3 bash scripts/run-shieldagent-atbench.sh` uses the official `thu-coai/ShieldAgent` Qwen2.5-7B checkpoint and the pinned THU scorer prompt/greedy 10-token configuration. It runs a two-case calibration smoke and classifies all 1,000 ATBench trajectories, with a separate paired-200 summary from the same outputs. This is the Agent-SafetyBench scorer, a different project from the ICML policy-reasoning system of the same name.
+
+The dataset adapter maps ATBench roles and tool descriptions into the author's input format. Execution uses FP16/SDPA, batch 1 and no torch.compile. The runtime records prompt versions, outputs, truncation and wall-clock audit latency. Weights, cache and results remain under the data1 project directory. See [the protocol and comparison audit](docs/plans/2026-11-19-audit-shieldagent-atbench.md).
+
 ## Tests
 
 ```bash

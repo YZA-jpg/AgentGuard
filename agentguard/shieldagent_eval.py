@@ -17,6 +17,15 @@ MODEL_REVISION = "a62f8413908bf3dbb1aea2edfbbeae54fdfd383c"
 AUTHOR_REVISION = "74feea8de601b3a1449a93fcf70017fe61556f73"
 
 
+def configure_context(config, mode):
+    if mode == "yarn128k":
+        # Preserve the checkpoint's rope_theta when adding the official extension.
+        config.rope_parameters = {**config.rope_parameters, "rope_type": "yarn", "factor": 4.0,
+                                  "original_max_position_embeddings": 32768}
+        config.max_position_embeddings = 131072
+    return config
+
+
 def author_functions(root):
     revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     changes = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"], text=True)
@@ -96,9 +105,13 @@ def main():
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--prefill-chunk-size", type=int, default=1024)
+    parser.add_argument("--reuse-results", type=Path)
+    parser.add_argument("--context-mode", choices=("native32k", "yarn128k"), default="native32k")
+    parser.add_argument("--only-overlong", action="store_true")
     args = parser.parse_args()
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
     author, source_hash = author_functions(args.author_root)
     split = read_split(args.split_manifest)
@@ -120,7 +133,18 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     dtype = torch.float16 if args.device.startswith("cuda") else torch.float32
-    model = AutoModelForCausalLM.from_pretrained(args.model, dtype=dtype, attn_implementation="sdpa").to(args.device).eval()
+    if args.only_overlong:
+        selected = []
+        for case in cases:
+            dialog, env = format_atbench(case[2])
+            prompt = author["create_ipt"](dialog, env, "qwen")
+            if len(tokenizer(prompt, truncation=False)["input_ids"]) > 32768:
+                selected.append(case)
+        cases = selected
+    config = configure_context(AutoConfig.from_pretrained(args.model), args.context_mode)
+    input_limit = config.max_position_embeddings - author["generation_config"]["max_new_tokens"]
+    model = AutoModelForCausalLM.from_pretrained(args.model, config=config, dtype=dtype,
+                                                attn_implementation="sdpa").to(args.device).eval()
     metadata = {"record_type": "run_metadata", "variant": "THU-ShieldAgent-official-checkpoint-ATBench-adapter",
                 "model_id": "thu-coai/ShieldAgent", "model_revision": MODEL_REVISION,
                 "author_revision": AUTHOR_REVISION, "author_scorer_sha256": source_hash,
@@ -133,18 +157,53 @@ def main():
                 "adapter_differences": ["ATBench roles and missing call IDs mapped to the author dialogue format",
                                         "SDPA, no torch.compile, batch 1 instead of author example batch 40",
                                         "Unambiguous Answer at end of output accepted without trailing newline"]}
+    metadata["prefill_chunk_size"] = args.prefill_chunk_size
+    metadata.update(context_mode=args.context_mode, input_limit=input_limit,
+                    rope_parameters=config.rope_parameters, only_overlong=args.only_overlong,
+                    truncation_side=tokenizer.truncation_side)
+    metadata["adapter_differences"].append("Full-context prefill processed in 1024-token chunks to fit shared GPU memory")
     records = []
+    if args.reuse_results:
+        previous = [json.loads(line) for line in args.reuse_results.read_text(encoding="utf-8").splitlines()]
+        previous_header = previous[0]
+        if previous_header.get("context_mode", "native32k") != args.context_mode:
+            raise ValueError("Cannot reuse a different RoPE context configuration")
+        for key in ("model_revision", "author_revision", "author_scorer_sha256", "data_sha256", "split_sha256"):
+            if previous_header[key] != metadata[key]:
+                raise ValueError(f"Cannot reuse different {key}")
+        expected = {case_id: (label, context) for case_id, label, context in cases}
+        for record in previous:
+            if record.get("record_type") != "case" or record["status"] != "ok":
+                continue
+            if record["input_tokens"] > input_limit:
+                continue
+            label, context = expected[record["case_id"]]
+            dialog, env = format_atbench(context)
+            if record["label"] != label or record["input_prompt"] != author["create_ipt"](dialog, env, "qwen"):
+                raise ValueError("Cached case input changed")
+            records.append(record)
+        if len({r["case_id"] for r in records}) != len(records):
+            raise ValueError("Duplicate cached IDs")
+        metadata["reused_cases"] = len(records)
+        metadata["reused_source_sha256"] = sha256(args.reuse_results.read_bytes()).hexdigest()
+    done = {r["case_id"] for r in records}
     with output_path.open("x", encoding="utf-8") as out:
         write_record(out, metadata)
+        for record in records:
+            write_record(out, record)
         for case_id, label, context in cases:
+            if case_id in done:
+                continue
             started = perf_counter()
             dialog, env = format_atbench(context)
             prompt = author["create_ipt"](dialog, env, "qwen")
             full = tokenizer(prompt, truncation=False)["input_ids"]
-            inputs = tokenizer([prompt], return_tensors="pt", truncation=True, padding=True).to(args.device)
+            inputs = tokenizer([prompt], return_tensors="pt", truncation=True,
+                               max_length=input_limit, padding=True).to(args.device)
             with torch.inference_mode():
                 ids = model.generate(**inputs, eos_token_id=tokenizer.eos_token_id,
-                                     pad_token_id=tokenizer.pad_token_id, **author["generation_config"])
+                                     pad_token_id=tokenizer.pad_token_id,
+                                     prefill_chunk_size=args.prefill_chunk_size, **author["generation_config"])
             generated = ids[0, inputs.input_ids.shape[1]:]
             response = tokenizer.decode(generated, skip_special_tokens=True)
             try:
@@ -156,7 +215,8 @@ def main():
                       "prediction": prediction, "status": status, "response": response,
                       "input_prompt": prompt, "input_tokens": inputs.input_ids.shape[1],
                       "full_input_tokens": len(full), "input_truncated": inputs.input_ids.shape[1] < len(full),
-                      "output_tokens": len(generated), "latency_seconds": perf_counter() - started}
+                      "output_tokens": len(generated), "latency_seconds": perf_counter() - started,
+                      "prefill_chunk_size": args.prefill_chunk_size}
             records.append(record)
             write_record(out, record)
             if len(records) % 10 == 0 or len(records) == len(cases):

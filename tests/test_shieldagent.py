@@ -1,10 +1,19 @@
 import unittest
 
 from agentguard.guard import GuardError, Review
-from agentguard.shieldagent_eval import format_atbench, parse_answer
+from agentguard.shieldagent_eval import configure_context, format_atbench, parse_answer
 
 
 class ShieldAgentTests(unittest.TestCase):
+    def test_yarn_preserves_checkpoint_frequency_and_native_config_is_unchanged(self):
+        from types import SimpleNamespace
+        config = SimpleNamespace(rope_parameters={"rope_type": "default", "rope_theta": 1000000},
+                                 max_position_embeddings=32768)
+        self.assertEqual(configure_context(config, "native32k").max_position_embeddings, 32768)
+        configure_context(config, "yarn128k")
+        self.assertEqual(config.rope_parameters["rope_theta"], 1000000)
+        self.assertEqual(config.rope_parameters["original_max_position_embeddings"], 32768)
+        self.assertEqual(config.max_position_embeddings, 131072)
     def test_maps_calls_and_observations_without_gold_annotations(self):
         context = Review(({"role": "user", "content": "task"},
                           {"role": "agent", "thought": "inspect", "gold_reason": "HIDDEN_GOLD",

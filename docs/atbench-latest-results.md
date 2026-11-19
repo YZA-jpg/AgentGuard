@@ -2,17 +2,19 @@
 
 核对日期：2026-11-19。已逐条核对正式文件的测试 ID、原始标签、混淆矩阵和 F1/Recall/FPR；以下各组均完整完成、错误数为 0。原始结果位于服务器 `/data1/yaoziao/agentguard/results`。本地机器可读汇总为 `results/atbench-latest-summary-20261119.json`。
 
-## 固定配对 200 条
+**复现状态更新：完成运行不等于通过原论文复现验收。** 当前 SafePred-prompt 为手写适配、TRACES K=32 为非论文配置，均不纳入论文配置的复现主比较；AgentDoG 的 200 条结果也不是论文全量 ATBench 分数。ShieldAgent 是 THU 官方模型的 ATBench 迁移评测。以下保留历史运行数据，不构成严格复现排名。逐项差异与修正计划见 [论文一致性核对](plans/2026-11-19-paper-faithful-baselines.md)。
 
-统一使用 `splits/atbench-v1.json`：99 条危险、101 条安全。主表包含通用模型判别基线和已完成的专用护栏。DreamGuard 方法尚待完善与验收，暂不纳入有效比较。TRACES 的不同划分见下一表。正类为危险轨迹。
+## 固定配对 200 条：已运行记录
+
+统一使用 `splits/atbench-v1.json`：99 条危险、101 条安全。此表记录已运行的模型对照与方法适配。DreamGuard 方法尚待完善与验收，暂不纳入有效比较。TRACES 的不同划分见下一表。正类为危险轨迹。
 
 | 方法 / 配置 | 评分方式 | TP/FP/TN/FN | F1 ↑ | Recall ↑ | FPR ↓ | Latency ↓（秒/次） |
 |---|---|---|---:|---:|---:|---:|
 | DeepSeek-v4-pro，通用判别基线（AgentDoG 作者模板） | 完整轨迹，直接二分类 | 74/36/65/25 | 70.81% | 74.75% | 35.64% | 15.925 |
 | AgentDoG 1.5 4B，作者输入格式 | 完整轨迹 | 79/37/64/20 | 73.49% | 79.80% | 36.63% | 17.525 |
 | ShieldAgent-THU，官方检查点、原生 32k | 完整轨迹 | 80/59/42/19 | 67.23% | 80.81% | 58.42% | 0.403 |
-| SafePred-prompt，含工具说明 | 逐步回放，首次拦截判危险 | 96/95/6/3 | 66.21% | 96.97% | 94.06% | 10.933 |
-| TRACES，K=32、阈值 0.195，既有配对组 | 完整轨迹，末状态评分 | 85/25/76/14 | 81.34% | 85.86% | 24.75% | 0.243 |
+| SafePred-prompt，历史手写适配，待官方核心重做 | 逐步回放，首次拦截判危险 | 96/95/6/3 | 66.21% | 96.97% | 94.06% | 10.933 |
+| TRACES，K=32、阈值 0.195，历史非论文配置 | 完整轨迹，末状态评分 | 85/25/76/14 | 81.34% | 85.86% | 24.75% | 0.243 |
 
 参数说明：DeepSeek 和 AgentDoG 使用同一 AgentDoG 作者 coarse 模板和工具 schema，输出上限 1024；DeepSeek temperature=0、thinking 关闭，AgentDoG BF16、greedy。SafePred 使用 DeepSeek-v4-pro、temperature=0.3、2048 tokens、固定策略，349 次审核。ShieldAgent 使用官方 THU Qwen2.5-7B 判别权重和作者 scorer，FP16、SDPA、batch 1、greedy、10 tokens；该子集有 3 条输入按原生窗口截断。TRACES 此行保留现有同一测试集的 K=32 结果，不代表最新 K=8 配置。
 

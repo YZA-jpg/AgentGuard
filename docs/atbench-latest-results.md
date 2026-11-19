@@ -4,19 +4,18 @@
 
 ## 固定配对 200 条
 
-统一使用 `splits/atbench-v1.json`：99 条危险、101 条安全。列出各方法最新可用配置；TRACES 的不同划分见下一表。正类为危险轨迹。
+统一使用 `splits/atbench-v1.json`：99 条危险、101 条安全。主表仅纳入已完成的专用护栏；DeepSeek 直接判别移至辅助对照，DreamGuard 方法尚待完善与验收，暂不纳入有效比较。TRACES 的不同划分见下一表。正类为危险轨迹。
 
 | 方法 / 配置 | 评分方式 | TP/FP/TN/FN | F1 ↑ | Recall ↑ | FPR ↓ | Latency ↓（秒/次） |
 |---|---|---|---:|---:|---:|---:|
-| DeepSeek-v4-pro 直接判别，作者输入格式 | 完整轨迹 | 74/36/65/25 | 70.81% | 74.75% | 35.64% | 15.925 |
 | AgentDoG 1.5 4B，作者输入格式 | 完整轨迹 | 79/37/64/20 | 73.49% | 79.80% | 36.63% | 17.525 |
 | ShieldAgent-THU，官方检查点、原生 32k | 完整轨迹 | 80/59/42/19 | 67.23% | 80.81% | 58.42% | 0.403 |
 | SafePred-prompt，含工具说明 | 逐步回放，首次拦截判危险 | 96/95/6/3 | 66.21% | 96.97% | 94.06% | 10.933 |
-| DreamGuard 方法复现版，SafetyDrift → ATBench | 逐步风险判别 | 99/101/0/0 | 66.22% | 100.00% | 100.00% | 0.059* |
+| TRACES，K=32、阈值 0.195，既有配对组 | 完整轨迹，末状态评分 | 85/25/76/14 | 81.34% | 85.86% | 24.75% | 0.243 |
 
-参数说明：DeepSeek 与 AgentDoG 使用作者 coarse 模板和工具 schema，输出上限 1024；DeepSeek temperature=0、thinking 关闭，AgentDoG BF16、greedy。SafePred 使用 DeepSeek-v4-pro、temperature=0.3、2048 tokens、固定策略，349 次审核。ShieldAgent 使用官方 THU Qwen2.5-7B 判别权重和作者 scorer，FP16、SDPA、batch 1、greedy、10 tokens；该子集有 3 条输入按原生窗口截断。
+参数说明：AgentDoG 使用作者 coarse 模板和工具 schema，输出上限 1024、BF16、greedy。SafePred 使用 DeepSeek-v4-pro、temperature=0.3、2048 tokens、固定策略，349 次审核。ShieldAgent 使用官方 THU Qwen2.5-7B 判别权重和作者 scorer，FP16、SDPA、batch 1、greedy、10 tokens；该子集有 3 条输入按原生窗口截断。TRACES 此行保留现有同一测试集的 K=32 结果，不代表最新 K=8 配置。
 
-DreamGuard 是独立方法复现，无作者 checkpoint；使用 SafetyDrift 训练/校准后迁移到 ATBench，全部 200 条均拦截，不能视为有效区分安全/危险。`*` 延迟为缓存文本编码耗时与递归头耗时之和的估计，未重新测在线端到端调用，不宜据此做速度排名。其他延迟也是各自每次审核的平均值；完整轨迹一次审核与逐步回放一次审核的输入和调用数不同。ATBench 没有在线 agent backbone；纯模型判别对照目前为 Pro，未找到已完成的 ATBench Flash-0731 正式组。
+延迟为各自每次审核的平均值；完整轨迹一次审核与逐步回放一次审核的输入和调用数不同。
 
 ## TRACES 两种协议
 
@@ -37,18 +36,24 @@ DreamGuard 是独立方法复现，无作者 checkpoint；使用 SafetyDrift 训
 
 25 条均为危险轨迹，无法估计 FPR；原生 25 条是全量结果的子集，YaRN 预测没有替换主表。全量 1,000 条与固定 200 条样本组成不同，勿混用排名。ATBench 缺少独立 recovery 标签，本次各组 recovery FPR 均留空。
 
+## 辅助对照与暂不纳入项目
+
+DeepSeek-v4-pro 直接判别可用于观察通用 LLM 的分类能力；当前主表聚焦专用护栏，按用户要求将其移出。已有固定 200 条结果保留：F1=70.81%、Recall=74.75%、FPR=35.64%、15.925 秒/次，TP/FP/TN/FN=74/36/65/25。参数为作者 coarse 模板与工具 schema、temperature=0、thinking 关闭、1024 tokens。ATBench 此项不运行任务代理；未找到已完成的 ATBench Flash-0731 正式组。
+
+DreamGuard 是独立方法复现，无作者 checkpoint，目前实现与验证尚未验收，**暂不计入主表、有效护栏比较或排名**。已有迁移试验仅保留为开发记录，原记录和参数见 `baseline-runs.md` 的历史批次。
+
 ## 结果索引
 
 均相对于服务器 `/data1/yaoziao/agentguard/results`：
 
 | 方法 | 正式文件 |
 |---|---|
-| DeepSeek 直接判别 | `atbench-deepseek-author-20261116_091817_909064276.jsonl` |
+| DeepSeek 直接判别（辅助对照） | `atbench-deepseek-author-20261116_091817_909064276.jsonl` |
 | AgentDoG | `atbench-agentdog-author-heldout-1024-20261115_221521.jsonl` |
 | SafePred-prompt | `atbench-safepred-tools-20261116_091817_917392823.jsonl` |
 | TRACES K=8 | `atbench-traces-20261116_091817-paper-k8.jsonl` |
 | TRACES K=32 | `atbench-traces-20261114_214107.jsonl` |
-| DreamGuard 方法复现版 | `dreamguard-atbench-method-20261118_154154/atbench.jsonl` |
+| DreamGuard 方法复现版（开发记录，暂不计入） | `dreamguard-atbench-method-20261118_154154/atbench.jsonl` |
 | ShieldAgent | `atbench-shieldagent-thu-20261119_010945/{formal,yarn-long25}/atbench.jsonl` |
 
 本次服务器写新汇总时返回磁盘空间不足，故统一汇总先保存在本地并备份文档到 GitHub；服务器原始实验记录未改动。

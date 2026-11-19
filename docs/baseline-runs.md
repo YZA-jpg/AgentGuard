@@ -1,6 +1,8 @@
 # AgentGuard 基线实验
 
-核对日期为 2026-11-16。已完成的正式任务在 `/data1/yaoziao/agentguard` 串行运行，本地模型使用一张 GPU。
+**ATBench 截至 2026-11-19 的最新正式结果与参数见 [统一汇总](atbench-latest-results.md)。** 下方保留各历史批次及协议变更记录。
+
+以下初始批次核对日期为 2026-11-16。已完成的正式任务在 `/data1/yaoziao/agentguard` 运行，本地模型使用一张 GPU。
 
 ## 数据和统计口径
 

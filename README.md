@@ -12,6 +12,8 @@ The historical `python -m agentguard agentdojo --ipiguard-root ...` interface be
 
 `bash scripts/run-reference-pro.sh NEW_OUTPUT_DIRECTORY` prepares the reference-matched Pro configuration: exact attack addressee, the external 939-case cohort, and omitted temperature/thinking/output cap. It validates the reference inputs offline, then runs an eight-case smoke and the 35 capability plus 939 attack cases. This is user-launched; see [known settings, unknown historical parameters and commands](docs/agentdojo-pro-reference.md).
 
+`bash scripts/run-model-diagnostic.sh NEW_OUTPUT_DIRECTORY` runs a separate paired 40-case Flash/Pro diagnostic: common inputs and enabled thinking; Flash/0, Pro/0, Pro/temperature omitted. It freezes a seed-42 sample before API calls, checks three one-case acceptances and saves paired outcomes. The user explicitly authorized the current batch; see [scope, interpretation and paths](docs/agentdojo-model-diagnostic.md).
+
 ## Environment
 
 Use a Python 3.10+ environment with PyTorch and a compatible build for the device. On the server, create a project venv with access to the existing IPIGuard environment.

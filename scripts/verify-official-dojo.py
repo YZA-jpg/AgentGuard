@@ -126,7 +126,11 @@ def main():
         seen = False
         for call in calls:
             request = call["request"]
-            assert request["model"] == config["model"] and request["temperature"] == config["temperature"], key
+            assert request["model"] == config["model"], key
+            if config["temperature"] is None:
+                assert "temperature" not in request, key
+            else:
+                assert request["temperature"] == config["temperature"], key
             assert text(request["messages"][0]["content"]) == expected_system, key
             assert request["messages"][0]["role"] == config["system_role"], key
             assert request["tools"] == [_function_to_openai(tool) for tool in suite.tools], key

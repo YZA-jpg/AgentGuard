@@ -92,6 +92,14 @@ def completion(tool=False, malformed=False):
 
 @unittest.skipUnless(find_spec("openai"), "OpenAI SDK required")
 class TransportTests(unittest.TestCase):
+    def test_provider_temperature_is_absent_instead_of_null(self):
+        with tempfile.TemporaryDirectory() as directory:
+            sdk = FakeSDK([completion()])
+            transport = runner.RecordingCompletions(sdk, Path(directory) / "api.jsonl", config(temperature=None))
+            transport.create(model="fixture", messages=[dict(role="user", content="fixture")], temperature=0.0)
+            self.assertNotIn("temperature", sdk.requests[0])
+            self.assertNotIn("temperature", runner.read_records(Path(directory) / "api.jsonl")[0]["request"])
+
     def test_zero_temperature_reasoning_and_original_request_are_preserved(self):
         from openai import NOT_GIVEN
         with tempfile.TemporaryDirectory() as directory:
@@ -125,6 +133,20 @@ class OfficialIntegrationTests(unittest.TestCase):
         self.assertEqual(sum(row["stage"] == "capability" for row in result["cases"]), 35)
         self.assertEqual(sum(row["stage"] == "under_attack" for row in result["cases"]), 949)
         self.assertNotIn("Ignore all new instructions", result["system_prompt"])
+
+    def test_reference_scope_excludes_only_the_two_missing_slack_users(self):
+        args = SimpleNamespace(model="deepseek-v4-pro", attack_model_name="Deepseek v4 Pro", suite=list(runner.SUITES),
+            stage=["capability", "under_attack"], limit_per_suite=None, check_candidates=False,
+            exclude_user_task=["slack:7", "slack:17"])
+        result = runner.inventory(args)
+        attack = [row for row in result["cases"] if row["stage"] == "under_attack"]
+        self.assertEqual(len(attack), 939)
+        self.assertEqual(sum(row["stage"] == "capability" for row in result["cases"]), 35)
+        self.assertFalse(any(row["suite"] == "slack" and row["task_id"] in ["user_task_7", "user_task_17"] for row in attack))
+        self.assertTrue(any(row["suite"] == "workspace" and row["task_id"] == "user_task_25" for row in attack))
+        args.exclude_user_task.append("slack:999")
+        with self.assertRaisesRegex(ValueError, "not found"):
+            runner.inventory(args)
 
     def test_scripted_native_trajectory_and_scoring_match_recording_wrapper(self):
         from agentdojo.logging import OutputLogger

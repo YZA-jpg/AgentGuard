@@ -119,12 +119,17 @@ def inventory(args):
     provenance = verify_install()
     runtime = author_runtime(args.model, args.attack_model_name)
     cases, scopes, schemas, candidate_errors = [], {}, {}, []
+    excluded = set(getattr(args, "exclude_user_task", []))
+    available = set()
     dummy = SimpleNamespace(name=args.model)
     for name in args.suite:
         suite = runtime.get_suite("v1.2.2", name)
-        users = sorted(suite.user_tasks, key=number)
+        all_users = sorted(suite.user_tasks, key=number)
+        available.update(f"{name}:{number(uid)}" for uid in all_users)
+        users = [uid for uid in all_users if f"{name}:{number(uid)}" not in excluded]
         injections = sorted(suite.injection_tasks, key=number)
-        scopes[name] = dict(user_tasks=len(users), injection_tasks=len(injections), attack_cases=len(users) * len(injections))
+        scopes[name] = dict(user_tasks=len(users), source_user_tasks=len(all_users),
+                           injection_tasks=len(injections), attack_cases=len(users) * len(injections))
         schemas[name] = [runtime.llm._function_to_openai(tool) for tool in suite.tools]
         attacker = runtime.load_attack("important_instructions", suite, dummy)
         if args.check_candidates:
@@ -141,10 +146,13 @@ def inventory(args):
         }
         for stage in args.stage:
             cases.extend(groups[stage][:args.limit_per_suite])
+    if excluded - available:
+        raise ValueError(f"Excluded tasks not found in selected suites: {sorted(excluded - available)}")
     from agentdojo.agent_pipeline.agent_pipeline import load_system_message
 
     system = load_system_message(None)
     return dict(provenance=provenance, scope=scopes, cases=cases, candidate_errors=candidate_errors,
+                excluded_user_tasks=sorted(excluded),
                 system_prompt=system, system_prompt_sha256=hashlib.sha256(system.encode()).hexdigest(),
                 tool_schemas=schemas, tool_schema_sha256={name: digest(schema) for name, schema in schemas.items()})
 
@@ -162,7 +170,10 @@ class RecordingCompletions:
         from openai import NOT_GIVEN
 
         payload = copy.deepcopy({key: value for key, value in kwargs.items() if value is not NOT_GIVEN})
-        payload["temperature"] = self.config["temperature"]
+        if self.config["temperature"] is None:
+            payload.pop("temperature", None)
+        else:
+            payload["temperature"] = self.config["temperature"]
         if self.config["max_tokens"] is not None:
             payload["max_tokens"] = self.config["max_tokens"]
         if self.config["thinking"] != "provider":
@@ -325,6 +336,7 @@ def protocol_config(args, inspected):
                 temperature=args.temperature, thinking=args.thinking, max_tokens=args.max_tokens, system_role=args.system_role,
                 author_loop_max_iters=15, author_task_output_attempts=3, author_sdk_call_attempts=3, sdk_max_retries=2,
                 timeout=args.timeout, case_attempts=args.case_attempts, workers=args.workers,
+                excluded_user_tasks=sorted(getattr(args, "exclude_user_task", [])),
                 runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 dependency_versions_sha256=digest({dist.metadata["Name"]: dist.version for dist in metadata.distributions()}),
                 source_manifest=inspected["provenance"]["manifest_sha256"],
@@ -358,13 +370,15 @@ def run(args, inspected):
         write_json(output / "inventory.json", inspected)
         write_json(output / "run_metadata.json", dict(record_type="run_metadata", started_at=now(),
                    plan_sha256=plan_hash, configuration=configuration, env_file=str(args.env_file),
-                   provider_defaults_unknown=[key for key, omitted in [("thinking", args.thinking == "provider"),
+                   provider_defaults_unknown=[key for key, omitted in [("temperature", args.temperature is None),
+                                              ("thinking", args.thinking == "provider"),
                                               ("max_tokens", args.max_tokens is None)] if omitted],
                    provenance=inspected["provenance"], python=sys.version, executable=sys.executable,
                    dependencies={dist.metadata["Name"]: dist.version for dist in metadata.distributions()},
                    runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                    compatibility_changes=["developer role mapped to configured gateway role; prompt unchanged",
-                       "explicit temperature preserves zero", "added model display-name mapping",
+                       "temperature omitted" if args.temperature is None else "explicit temperature preserves zero",
+                       "added model display-name mapping",
                        "echo returned reasoning_content for continued tool calls", "case-level error retries logged separately"]))
     records = {row["case_key"]: row for row in read_records(output / "cases.jsonl")}
     attempts = read_records(output / "attempts.jsonl")
@@ -409,6 +423,26 @@ def positive(value):
     return result
 
 
+def temperature(value):
+    if value == "provider":
+        return None
+    result = float(value)
+    if not 0 <= result <= 2:
+        raise argparse.ArgumentTypeError("temperature must be provider or a number from 0 to 2")
+    return result
+
+
+def excluded_task(value):
+    try:
+        suite, identifier = value.split(":")
+        identifier = int(identifier)
+        if suite not in SUITES or identifier < 0:
+            raise ValueError
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected SUITE:ID, e.g. slack:7") from error
+    return f"{suite}:{identifier}"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("inspect", "run"))
@@ -416,9 +450,11 @@ def main():
     parser.add_argument("--attack-model-name", default="DeepSeek")
     parser.add_argument("--suite", action="append", choices=SUITES)
     parser.add_argument("--stage", action="append", choices=STAGES)
+    parser.add_argument("--exclude-user-task", action="append", type=excluded_task, default=[])
     parser.add_argument("--limit-per-suite", type=positive)
     parser.add_argument("--workers", type=positive, default=4)
-    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--temperature", type=temperature, default=0.0,
+                        help="explicit value, or provider to omit temperature entirely")
     parser.add_argument("--thinking", choices=("provider", "enabled", "disabled"), default="provider")
     parser.add_argument("--max-tokens", type=positive)
     parser.add_argument("--system-role", choices=("system", "developer"), default="system")

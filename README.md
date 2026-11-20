@@ -10,6 +10,8 @@ By default, provide launch and inspection commands for the user to execute. Do n
 
 The historical `python -m agentguard agentdojo --ipiguard-root ...` interface below retains the IPIGuard fork's prompt defense and modified tools; its results use the legacy protocol. See [the baseline correction](docs/agentdojo-deepseek-result-comparison.md).
 
+`bash scripts/run-reference-pro.sh NEW_OUTPUT_DIRECTORY` prepares the reference-matched Pro configuration: exact attack addressee, the external 939-case cohort, and omitted temperature/thinking/output cap. It validates the reference inputs offline, then runs an eight-case smoke and the 35 capability plus 939 attack cases. This is user-launched; see [known settings, unknown historical parameters and commands](docs/agentdojo-pro-reference.md).
+
 ## Environment
 
 Use a Python 3.10+ environment with PyTorch and a compatible build for the device. On the server, create a project venv with access to the existing IPIGuard environment.

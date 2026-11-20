@@ -1,5 +1,7 @@
 # ShieldAgent、DreamGuard 和 SafetyDrift 复现计划
 
+2026-11-21：以下 DreamGuard 285/72 训练/校准与缓存延迟口径已由 v2 替代。新版本使用 221/57/72 有效划分、Adam、逐轨迹归一化和真实端到端计时。详见 [当前方法与代码说明](../dreamguard-reproduction-zh.md)。旧配置保留用于解释历史结果，勿用作新实验启动配置。
+
 2026-11-19 更正：下表的 ShieldAgent 指 ICML 政策推理系统。另有清华 Agent-SafetyBench 的同名判别模型 `thu-coai/ShieldAgent`，已经发布官方 7B 权重和评分代码；此前调查遗漏了它。当前 ATBench 接入采用清华模型，两者不能混称。具体配置见 `docs/plans/2026-11-19-audit-shieldagent-atbench.md`。
 
 这轮沿用 AgentGuard 的离线逐步审核入口。输入为当前候选动作和此前可见的轨迹。先复现作者自己的数据、设置和指标，再在同一批轨迹上比较各护栏。

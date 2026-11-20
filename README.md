@@ -71,9 +71,9 @@ Run `scripts/download-safepred-model.py` on the server to obtain and verify the 
 
 ## DreamGuard method reproduction
 
-`bash scripts/run-dreamguard-atbench.sh` trains an independent DreamGuard implementation on the public SafetyDrift training split, calibrates on its original test split, and evaluates the frozen ATBench heldout split. Set `DREAMGUARD_GPU` to the GPU index. The encoder snapshot is `models/qwen3-4b-instruct-2507`.
+`bash scripts/run-dreamguard-paper.sh` prepares frozen features, trains a paper-based independent DreamGuard implementation, calibrates on a separate development split, and evaluates SafetyDrift's original 72-test set plus ATBench's full 1000 trajectories. Set `DREAMGUARD_GPU` to the available GPU index. The existing Qwen author snapshot is `models/qwen3-4b-instruct-2507`. No verified DreamGuard author source or checkpoint was found as of 2026-11-21.
 
-Each run records code hashes, data hashes, calibration settings and implementation differences in `manifest.json`. Metrics and per-trajectory risk scores are written to `atbench.jsonl`. The detailed protocol is in [the reproduction plan](docs/plans/2026-11-17-shieldagent-dreamguard-safetydrift.md).
+Version 2 uses the verified SafetyDrift manifest, with one further input-projection duplicate removed (221/57/72 train/calibration/test), Adam, per-trajectory loss normalization, epoch checkpoints with optimizer/RNG state, and PASS/HOLD/BLOCK decisions. Set `DREAMGUARD_ATBENCH_SCOPE=heldout` for the historical 200-case transfer scope, or `DREAMGUARD_STAGE=prepare|train|evaluate` to run stages separately. Formal latency is measured from uncached text encoding to decision; cached head timing is reported separately. Each run saves provenance, calibration and per-case JSONL metrics. See the [Chinese method and code guide](docs/dreamguard-reproduction-zh.md). The old 285/72 train/calibration protocol is retained only as historical documentation; old checkpoints must use separate directories.
 
 ## SafetyDrift
 

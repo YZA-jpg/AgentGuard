@@ -11,5 +11,8 @@
 /scripts/run-model-diagnostic.py text eol=lf
 /scripts/run-model-diagnostic.sh text eol=lf
 /tests/test_model_diagnostic.py text eol=lf
+/agentguard/dreamguard*.py text eol=lf
+/tests/test_dreamguard.py text eol=lf
+/scripts/run-dreamguard*.sh text eol=lf
 /requirements-native-dojo.txt text eol=lf
 /requirements-native-dojo-author.txt text eol=lf

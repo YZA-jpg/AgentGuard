@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python >=3.10, official AgentDojo 0.1.35 / benchmark v1.2.2, OpenAI-compatible SDK, multiprocessing, JSONL, unittest, tmux. Server artifacts and caches stay on `/data1`.
 
+**Final dependency decision:** Use the author's original `uv.lock`, exported with `--frozen --no-dev --no-emit-project` and hash-checked, plus the verified official wheel. The first modern-dependency comparison batch completed and is preserved; formal author-lock execution uses `.venv-agentdojo-author`. Nine offline checks and the twelve-case actual API acceptance passed. The author-lock full batch was started at 20:15 BJT. The user then requested that this batch continue, and that future tests be supplied as launch commands with reasonable concurrency rather than automatically started or monitored; this preference is recorded in `AGENTS.md`.
+
 ---
 
 ## Design and scope

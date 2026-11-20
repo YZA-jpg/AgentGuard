@@ -7,3 +7,4 @@
 /scripts/*official*.sh text eol=lf
 /scripts/verify-official-dojo.py text eol=lf
 /requirements-native-dojo.txt text eol=lf
+/requirements-native-dojo-author.txt text eol=lf

@@ -25,7 +25,7 @@ PROJECT = Path(__file__).resolve().parents[1]
 MANIFEST = PROJECT / "configs/agentdojo-official-v0.1.35.json"
 SUITES = ("workspace", "slack", "travel", "banking")
 STAGES = ("benign", "capability", "under_attack")
-PROTOCOL = "agentdojo-official-0.1.35-v1.2.2-none-v1"
+PROTOCOL = "agentdojo-official-0.1.35-v1.2.2-author-lock-none-v1"
 _WORKER = None
 
 
@@ -68,6 +68,12 @@ def verify_install():
     distribution = metadata.distribution("agentdojo")
     if distribution.version != manifest["version"]:
         raise RuntimeError("Use the dedicated official AgentDojo 0.1.35 environment")
+    for package, expected in manifest["critical_dependency_versions"].items():
+        actual = metadata.version(package)
+        if actual != expected:
+            raise RuntimeError(f"Dependency differs from author uv.lock: {package}={actual}, expected {expected}")
+    if hashlib.sha256((PROJECT / "requirements-native-dojo-author.txt").read_bytes()).hexdigest() != manifest["author_requirements_sha256"]:
+        raise RuntimeError("Author dependency export differs from its frozen hash")
     site_root = Path(distribution.locate_file("")).resolve()
     verify_files(site_root, manifest)
     import agentdojo
@@ -81,6 +87,8 @@ def verify_install():
                 raise RuntimeError(f"Mixed AgentDojo source trees: {name}")
     return dict(distribution_version=distribution.version, package_root=str(root),
                 upstream_git_commit=manifest.get("upstream_git_commit"),
+                author_uv_lock_sha256=manifest["author_uv_lock_sha256"],
+                author_requirements_sha256=manifest["author_requirements_sha256"],
                 pinned_wheel_sha256=manifest["wheel_sha256"], verified_files=len(manifest["files"]),
                 manifest_sha256=hashlib.sha256(MANIFEST.read_bytes()).hexdigest())
 

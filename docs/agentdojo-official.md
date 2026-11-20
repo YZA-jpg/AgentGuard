@@ -7,7 +7,7 @@
 - 官方 AgentDojo 0.1.35，benchmark v1.2.2；Git 标签提交 `a75aba7631d3ca5fb7ab938965c97ead2f9ff84b`。
 - 官方 wheel SHA256：`364bea4219716b716bf639f504d195943f7f6a5535d312ca41d7098704a2affd`。
 - 112 个包内文件与标签源码逐字节一致，哈希固定在 `configs/agentdojo-official-v0.1.35.json`，每次启动重新校验。系统提示、工具、数据、执行循环、注入位置选择、攻击模板和 checker 均直接调用未修改的作者代码。
-- 干净环境：`/data1/yaoziao/agentguard/.venv-agentdojo-official`，不继承系统 site-packages。74 个依赖版本固定在 `requirements-native-dojo.txt`。现有 Python 3.10.21 仅提供解释器，未导入旧 IPIGuard 包或评测辅助函数。
+- 正式环境：`/data1/yaoziao/agentguard/.venv-agentdojo-author`，不继承系统 site-packages。原仓库 `uv.lock` 经 `uv export --frozen --no-dev --no-emit-project` 导出为带哈希的 `requirements-native-dojo-author.txt`，另加已核对的官方 wheel，63 个依赖均按哈希安装。核心版本包括 OpenAI SDK 1.76.2、Pydantic 2.11.4；启动时检查依赖版本与导出文件哈希。Python 3.10.21 仅提供解释器，未导入旧 IPIGuard 包或评测辅助函数。
 
 | Suite | 良性任务 | 攻击目标能力检查 | 正式攻击用例 |
 |---|---:|---:|---:|
@@ -37,15 +37,17 @@
 
 ## 已验收与当前正式批次
 
-小规模目录：`/data1/yaoziao/agentguard/results/agentdojo-official-flash-smoke-20261120_152747`。
+作者依赖锁环境的小规模目录：`/data1/yaoziao/agentguard/results/agentdojo-official-author-flash-smoke-20261120_201354`。
 
-12 条验收用例（每 suite、每阶段 1 条）全部完成，运行错误 0、重试 0；38 次 API 调用均返回 `deepseek-v4-flash-0731`。独立离线复核确认：原始系统/用户提示、所有工具 schema、攻击字典及 checker 判分一致，4 条攻击的注入均实际进入模型请求。良性 Utility 3/4、能力检查完成 3/4、攻击 ASR 0/4，均仅用于验收，不能当作正式成绩。
+9 项离线测试通过。12 条验收用例（每 suite、每阶段 1 条）全部完成，运行错误 0、重试 0；34 次 API 调用均返回 `deepseek-v4-flash-0731`。独立离线复核确认原始系统/用户提示、工具 schema、攻击字典及 checker 判分一致，4 条攻击的注入均实际进入模型请求。良性 Utility 3/4、能力检查完成 4/4、攻击 ASR 0/4，均仅用于验收，不能当作正式成绩。
 
-正式批次已于 2026-11-20 15:35（北京时间）启动：
+作者依赖锁正式批次已于 2026-11-20 20:15（北京时间）按用户此前授权启动，用户随后明确要求继续运行：
 
-`/data1/yaoziao/agentguard/results/agentdojo-official-flash-20261120_153500`
+`/data1/yaoziao/agentguard/results/agentdojo-official-author-flash-20261120_201550`
 
 共 1081 条，四进程。最终分数以批次完成并通过独立复核后的汇总为准。
+
+中间批次 `agentdojo-official-flash-20261120_153500` 使用相同作者源码，但依赖为按公开范围解析的较新版本（74 个，SDK 3.57.0 / Pydantic 2.14.4）。它已完整完成并独立验收：正常 Utility 89/97（91.75%）、能力检查 30/35（85.71%）、攻击 ASR 3/949（0.316%）、攻击 Utility 836/949（88.09%），运行错误 0。保留为现代依赖对照，不与作者锁定依赖正式组混记；其源码版本为 Git `9c19a75`，环境与版本快照仍保留。
 
 ## 保存内容与统计
 
@@ -65,8 +67,8 @@
 ```bash
 cd /data1/yaoziao/agentguard
 bash scripts/setup-official-dojo.sh
-.venv-agentdojo-official/bin/python -m unittest tests.test_native_agentdojo -v
-.venv-agentdojo-official/bin/python -m agentguard.native_agentdojo inspect
+.venv-agentdojo-author/bin/python -m unittest tests.test_native_agentdojo -v
+.venv-agentdojo-author/bin/python -m agentguard.native_agentdojo inspect
 ```
 
 凭据位于 AgentGuard 自己的 `.env`，包含 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`。本轮从既有配置无回显复制；后续换 key 在这个文件更新。该文件被 Git 忽略。
@@ -74,8 +76,8 @@ bash scripts/setup-official-dojo.sh
 当前批次监控：
 
 ```bash
-tmux -S /data1/yaoziao/agentguard/cache/tmux/agentdojo-official.sock attach -t flash_official
-tmux -S /data1/yaoziao/agentguard/cache/tmux/agentdojo-official.sock capture-pane -p -t flash_official:run -S -20
+tmux -S /data1/yaoziao/agentguard/cache/tmux/agentdojo-official.sock attach -t flash_author
+tmux -S /data1/yaoziao/agentguard/cache/tmux/agentdojo-official.sock capture-pane -p -t flash_author:run -S -20
 ```
 
 从 attach 界面按 `Ctrl+b` 再按 `d` 返回终端，后台继续执行。正式任务已启动，不需要重复启动。
@@ -85,9 +87,11 @@ tmux -S /data1/yaoziao/agentguard/cache/tmux/agentdojo-official.sock capture-pan
 ```bash
 run=$(cat /data1/yaoziao/agentguard/results/agentdojo-official-flash-latest.txt)
 cat "$run/summary.json"
-.venv-agentdojo-official/bin/python scripts/verify-official-dojo.py "$run"
+.venv-agentdojo-author/bin/python scripts/verify-official-dojo.py "$run"
 # 仅在已有任务停止且需要补测时执行：
 bash scripts/run-official-flash.sh "$run" --resume
 ```
 
 更换模型时使用新结果目录和 `--model`、`--attack-model-name`；可通过 `--stage benign` / `--stage capability` / `--stage under_attack`、`--suite` 选择范围，通过 `--limit-per-suite 1` 验收。参数、源码或依赖改变时禁止续写旧批次。`scripts/run-official-flash.sh` 是本轮固定 Flash 配置的启动器。
+
+用户于 2026-11-20 更新运行约定：当前批次继续，后续默认提供启动命令，由用户执行；不主动监视或等待任务结束。默认可并发，不适合时说明串行原因。原始依赖范围解析得到的 `requirements-native-dojo.txt` 仅用于历史对照，正式环境使用带哈希的作者导出文件。

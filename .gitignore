@@ -3,6 +3,7 @@
 !.env.example
 .venv/
 .venv-agentdojo-official/
+.venv-agentdojo-author/
 __pycache__/
 .pytest_cache/
 *.py[cod]

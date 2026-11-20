@@ -120,5 +120,21 @@
     "agentdojo/yaml_loader.py": "73443ec93c140dd2365d1c093f983729dca25075ee39e99047fa6c3d22ad9194"
   },
   "upstream_git_commit": "a75aba7631d3ca5fb7ab938965c97ead2f9ff84b",
-  "wheel_matches_git_source_files": 112
+  "wheel_matches_git_source_files": 112,
+  "author_uv_lock_sha256": "395e3d0a59214515008d27c4462c9723ab7594374243f561ad5f19b3aa8a5330",
+  "author_requirements_sha256": "c1245b79ab80716c246466cb9c7e0fa650dd4a0bc35927c4802c6149af05aa09",
+  "critical_dependency_versions": {
+    "openai": "1.76.2",
+    "pydantic": "2.11.4",
+    "anthropic": "0.50.0",
+    "cohere": "5.15.0",
+    "google-genai": "1.15.0",
+    "langchain": "0.3.24",
+    "langchain-core": "0.3.56",
+    "pyyaml": "6.0.2",
+    "rich": "14.0.0",
+    "deepdiff": "8.6.1",
+    "python-dotenv": "1.1.0",
+    "tenacity": "9.1.2"
+  }
 }

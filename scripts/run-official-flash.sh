@@ -8,7 +8,7 @@ export UV_CACHE_DIR="$root/cache/uv"
 export TMPDIR="$root/cache/tmp"
 export PYTHONUNBUFFERED=1
 unset PYTHONPATH LD_LIBRARY_PATH OPENAI_API_KEY OPENAI_BASE_URL
-python="$root/.venv-agentdojo-official/bin/python"
+python="$root/.venv-agentdojo-author/bin/python"
 output="${1:?Usage: bash scripts/run-official-flash.sh /data1/.../NEW_OUTPUT [additional runner arguments]}"
 shift
 if [[ -e "$output" && " $* " != *" --resume "* ]]; then

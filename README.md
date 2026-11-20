@@ -4,7 +4,9 @@ Evaluate published agent safety methods against recorded ATBench trajectories an
 
 ## Official AgentDojo workflow
 
-New AgentDojo baseline runs use `.venv-agentdojo-official/bin/python -m agentguard.native_agentdojo`, with an isolated official 0.1.35 installation, benchmark v1.2.2, pinned package hashes and unchanged author prompts/tools/checkers. `bash scripts/run-official-flash.sh NEW_OUTPUT_DIRECTORY` runs Flash-0731 on 97 benign tasks, 35 attack-target capability checks and 949 `important_instructions` cases with four independent API workers, then independently verifies the saved trajectories offline. Full requests/responses, native traces, retries and effective request settings are retained. See [configuration, known adaptations and the running batch](docs/agentdojo-official.md).
+New AgentDojo baseline runs use `.venv-agentdojo-author/bin/python -m agentguard.native_agentdojo`, with official 0.1.35 / benchmark v1.2.2, verified source hashes and the authors' original `uv.lock` dependencies. `requirements-native-dojo-author.txt` is the frozen hash-checked export; startup rejects drift in core dependencies. `bash scripts/run-official-flash.sh NEW_OUTPUT_DIRECTORY` runs Flash-0731 on 97 benign tasks, 35 attack-target capability checks and 949 `important_instructions` cases with four independent API workers, then independently verifies saved trajectories offline. Full requests/responses, native traces and retries are retained. See [configuration, known adaptations and current results](docs/agentdojo-official.md).
+
+By default, provide launch and inspection commands for the user to execute. Do not automatically start or monitor a formal batch without an explicit request. Independent tests may use concurrency by default; explain when state isolation, GPU memory or the author protocol requires serial execution. See [the user's project conventions](AGENTS.md).
 
 The historical `python -m agentguard agentdojo --ipiguard-root ...` interface below retains the IPIGuard fork's prompt defense and modified tools; its results use the legacy protocol. See [the baseline correction](docs/agentdojo-deepseek-result-comparison.md).
 

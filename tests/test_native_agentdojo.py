@@ -17,6 +17,12 @@ def config(**changes):
 
 
 class PinnedAssetTests(unittest.TestCase):
+    def test_newer_dependencies_are_rejected_before_loading_author_code(self):
+        with patch.object(runner.metadata, "distribution", return_value=SimpleNamespace(version="0.1.35")), \
+             patch.object(runner.metadata, "version", return_value="unexpected-newer-version"):
+            with self.assertRaisesRegex(RuntimeError, "Dependency differs from author uv.lock"):
+                runner.verify_install()
+
     def test_offline_replay_retains_prior_query_actions_and_ignores_pending_calls(self):
         import importlib.util
         path = Path(__file__).resolve().parents[1] / "scripts/verify-official-dojo.py"

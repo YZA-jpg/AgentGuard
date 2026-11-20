@@ -49,6 +49,14 @@ For each proposed action, the runtime records the guard verdict and latency. `HO
 
 Summaries report mean seconds per successful review. ATBench labels are trajectory-level. AgentDojo reports ASR and utility through its task checkers. A recovery-specific FPR requires labeled recovery actions.
 
+## SafePred author-core retests
+
+Use `SAFEPRED_AUTHOR_GPU=4 SAFEPRED_AUTHOR_POLICY_DIR=policies/frozen/safepred-author-qwen3-8b-20261120 bash scripts/run-safepred-author.sh` for the new author-core path with the frozen, versioned policies. Omit `SAFEPRED_AUTHOR_POLICY_DIR` only to prepare a separate experiment with new extraction outputs. The earlier `--method safepred` entry still identifies the historical **SafePred-prompt** adaptation and is retained for old-run reproducibility; the new launcher uses `agentguard.safepred_author_eval` instead.
+
+The new adapter imports the pinned, unmodified `YurunChen/SafePred` implementation: its complete policy CLI workflow, prediction prompt, JSON parser, risk scoring, seven-action history manager and one-candidate root filtering. It uses original Qwen3-8B locally because Qwen3-Max is unavailable on the configured API. This is the paper's Qwen3-8B backbone variant, not its distilled SafePred-8B checkpoint. Enable both prediction horizons, temperature 0.3 and native risk penalty/threshold 0.8/0.7.
+
+Run `scripts/download-safepred-model.py` on the server to obtain and verify the pinned backbone under data1. The launcher freezes benchmark-specification policies, checks reserved calibration cases, and serially retests ATBench's fixed 200 heldout trajectories and SafetyDrift's original 72 test trajectories. Logs contain actual author prompts/outputs, failed attempts, latency, token use and context truncation. This offline risk-evaluation path does not execute online action regeneration or replanning. See [the exact protocol](docs/plans/2026-11-20-safepred-author-retest.md).
+
 ## DreamGuard method reproduction
 
 `bash scripts/run-dreamguard-atbench.sh` trains an independent DreamGuard implementation on the public SafetyDrift training split, calibrates on its original test split, and evaluates the frozen ATBench heldout split. Set `DREAMGUARD_GPU` to the GPU index. The encoder snapshot is `models/qwen3-4b-instruct-2507`.

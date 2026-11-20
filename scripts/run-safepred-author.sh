@@ -19,11 +19,17 @@ for benchmark in atbench safetydrift; do
     else
         source=policies/sources/safetydrift-author-global-rules.txt
     fi
-    "${py[@]}" -m agentguard.safepred_author_eval --benchmark "$benchmark" --mode prepare-policy \
-        --policy-source "$source" --out-dir "$run/$benchmark-policy"
+    if [[ -n ${SAFEPRED_AUTHOR_POLICY_DIR:-} ]]; then
+        policy="$SAFEPRED_AUTHOR_POLICY_DIR/$benchmark.json"
+        test -f "$policy"
+    else
+        "${py[@]}" -m agentguard.safepred_author_eval --benchmark "$benchmark" --mode prepare-policy \
+            --policy-source "$source" --out-dir "$run/$benchmark-policy"
+        policy="$run/$benchmark-policy/policies.json"
+    fi
     "${py[@]}" -m agentguard.safepred_author_eval --benchmark "$benchmark" --mode smoke \
-        --policy-file "$run/$benchmark-policy/policies.json" --out-dir "$run/$benchmark-smoke"
+        --policy-file "$policy" --out-dir "$run/$benchmark-smoke"
     "${py[@]}" -m agentguard.safepred_author_eval --benchmark "$benchmark" --mode formal \
-        --policy-file "$run/$benchmark-policy/policies.json" --out-dir "$run/$benchmark-formal" || status=1
+        --policy-file "$policy" --out-dir "$run/$benchmark-formal" || status=1
 done
 exit "$status"

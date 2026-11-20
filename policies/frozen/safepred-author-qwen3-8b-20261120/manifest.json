@@ -1,0 +1,25 @@
+{
+  "author_revision": "495890eafce02f9990e494493891c4549114a2dc",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "temperature": 0.3,
+  "seed": 42,
+  "extraction_max_new_tokens": 8192,
+  "workflow": "unmodified author process_policy_input (local LLM transport)",
+  "manually_edited_after_generation": false,
+  "reference_run": "results/safepred-author-qwen3-8b-20261120_092801",
+  "benchmarks": {
+    "atbench": {
+      "policy_sha256": "32ea550d67632238d6c8e23bda0da908bf7e815a78d0fca199489e70a51d85b2",
+      "policy_count": 2,
+      "source_path": "policies\\sources\\atbench-author-taxonomy.txt",
+      "source_sha256": "71d434194d5e3d08228e7b354d175fbc6a81ad0d75ceb55b0c5205173fea712f"
+    },
+    "safetydrift": {
+      "policy_sha256": "54fef6ba4cce8ca486519408a98e207e81176528c22534c5ef2f6ac9eb317564",
+      "policy_count": 2,
+      "source_path": "policies\\sources\\safetydrift-author-global-rules.txt",
+      "source_sha256": "5ff4f9e0cfec94126d75e1de8e56239c0570d61da54eb048d166a7541e66d9a9"
+    }
+  }
+}

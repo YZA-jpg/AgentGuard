@@ -165,12 +165,12 @@ def main():
         source = args.policy_source.read_text(encoding='utf-8')
         original_tokens = transport.max_tokens
         transport.max_tokens = 8192
-        policies = extract_policies(author, transport, source)
+        policies = extract_policies(author, transport, source, args.out_dir / 'author-workflow')
         transport.max_tokens = original_tokens
         (args.out_dir / 'policies.json').write_text(json.dumps(policies, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         (args.out_dir / 'extraction.json').write_text(json.dumps({
             'source_sha256': sha256(args.policy_source.read_bytes()).hexdigest(),
-            'source_path': str(args.policy_source), 'extractor': 'author LLMRuleExtractor',
+            'source_path': str(args.policy_source), 'extractor': 'author process_policy_input complete CLI workflow',
             'max_new_tokens': 8192, 'model_id': 'Qwen/Qwen3-8B', 'model_revision': MODEL_REVISION,
             'calls': transport.calls, 'policy_count': len(policies),
         }, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

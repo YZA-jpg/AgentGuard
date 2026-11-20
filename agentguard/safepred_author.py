@@ -12,7 +12,9 @@ from hashlib import sha256
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from .atbench import recorded_candidate
 from .guard import Decision, GuardError, Verdict, json_text
@@ -22,7 +24,7 @@ AUTHOR_REVISION = '495890eafce02f9990e494493891c4549114a2dc'
 MODEL_REVISION = 'b968826d9c46dd6066d109eabc6255188de91218'
 AUTHOR_FILES = ('models/prompts.py', 'models/world_model.py', 'agent/agent.py',
                 'core/conversation_history_manager.py', 'models/llm_rule_extractor.py',
-                'config/config.py', 'config/config.yaml')
+                'models/policy_extractor.py', 'config/config.py', 'config/config.yaml')
 
 
 def load_author(root):
@@ -51,6 +53,7 @@ def load_author(root):
         config=importlib.import_module('SafePred.config.config').SafetyConfig,
         history=importlib.import_module('SafePred.core.conversation_history_manager').ConversationHistoryManager,
         extractor=importlib.import_module('SafePred.models.llm_rule_extractor').LLMRuleExtractor,
+        policy_workflow=importlib.import_module('SafePred.models.policy_extractor'),
         prompt=importlib.import_module('SafePred.models.prompts').PromptTemplates,
         source_hashes={name: sha256((root / name).read_bytes()).hexdigest() for name in AUTHOR_FILES},
     )
@@ -69,13 +72,26 @@ def author_world(author, transport):
     return model
 
 
-def extract_policies(author, transport, source):
-    extractor = author.extractor(api_key='local-transformers-backend',
-                                  api_url='local-transformers-backend', model_name='Qwen/Qwen3-8B',
-                                  provider='custom', timeout=180, temperature=0.3,
-                                  max_tokens=transport.max_tokens)
-    extractor._llm_client = transport
-    policies = extractor.extract_rules_from_text(source, target_subject='AI agent')
+def extract_policies(author, transport, source, work_dir=None):
+    if work_dir is None:
+        with tempfile.TemporaryDirectory() as directory:
+            return extract_policies(author, transport, source, Path(directory))
+    work_dir = Path(work_dir)
+    work_dir.mkdir(parents=True, exist_ok=True)
+    input_path = work_dir / 'benchmark_specification.txt'
+    input_path.write_text(source, encoding='utf-8')
+    # The author CLI uses this complete workflow (extract -> review -> dedup -> P000).
+    # Replace only its LLM transport factory, just as for the world-model backend.
+    with patch.object(author.policy_workflow, 'LLMClient', lambda **kwargs: transport):
+        result = author.policy_workflow.process_policy_input(
+            input_path=str(input_path), organization='AgentGuard', organization_description='',
+            target_subject='AI agent', output_path=str(work_dir / 'policies.json'),
+            api_key='local-transformers-backend', api_url='local-transformers-backend',
+            model_name='Qwen/Qwen3-8B', provider='custom', timeout=180, temperature=0.3,
+            max_tokens=transport.max_tokens, policies_dir=str(work_dir / 'workflow'))
+    if not result.get('success'):
+        raise ValueError('Author policy workflow failed: ' + result.get('error', 'unknown error'))
+    policies = result['policies']
     validate_policies(policies)
     return policies
 
@@ -188,6 +204,7 @@ class AuthorSafePred:
         self.world._last_predicted_delta = None
 
     def review(self, context):
+        self.capture = {}
         if context.candidate is None:
             raise GuardError('Author SafePred requires a pre-action candidate')
         state, action, tools, observation = recorded_state(context, self.author)
@@ -253,14 +270,22 @@ class TransformersTransport:
             raise ValueError('Input exceeds native context; instructions must not be truncated')
         started = perf_counter()
         inputs = self.torch.tensor([ids], device=self.device)
-        with self.torch.inference_mode():
-            output = self.model.generate(inputs, attention_mask=self.torch.ones_like(inputs),
-                                         do_sample=True, temperature=kwargs.get('temperature', 0.3),
-                                         max_new_tokens=max_tokens,
-                                         pad_token_id=self.tokenizer.pad_token_id)
-        generated = output[0, len(ids):].tolist()
-        response = self.tokenizer.decode(generated, skip_special_tokens=True)
-        self.calls.append({'prompt': prompt, 'response': response, 'input_tokens': len(ids),
-                           'output_tokens': len(generated), 'latency_seconds': perf_counter() - started,
-                           'generation_limit_reached': len(generated) == max_tokens})
+        call = {'prompt': prompt, 'response': '', 'input_tokens': len(ids), 'output_tokens': 0,
+                'generation_limit_reached': False}
+        self.calls.append(call)
+        try:
+            with self.torch.inference_mode():
+                output = self.model.generate(inputs, attention_mask=self.torch.ones_like(inputs),
+                                             do_sample=True, temperature=kwargs.get('temperature', 0.3),
+                                             max_new_tokens=max_tokens,
+                                             pad_token_id=self.tokenizer.pad_token_id)
+            generated = output[0, len(ids):].tolist()
+            response = self.tokenizer.decode(generated, skip_special_tokens=True)
+            call.update(response=response, output_tokens=len(generated),
+                        generation_limit_reached=len(generated) == max_tokens)
+        except Exception as error:
+            call['error_type'] = type(error).__name__
+            raise
+        finally:
+            call['latency_seconds'] = perf_counter() - started
         return response

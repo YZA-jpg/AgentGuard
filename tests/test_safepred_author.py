@@ -96,6 +96,14 @@ class AuthorSafePredTests(unittest.TestCase):
             # Native _simulate_api retries malformed formats three times per root call.
             self.assertEqual(len(guard.capture['calls']), 6 if response == '{}' else 2)
 
+    def test_invalid_next_review_does_not_reuse_previous_capture(self):
+        guard = AuthorSafePred(self.author, Transport(forecast([])), self.policies)
+        guard.review(self.context())
+        self.assertTrue(guard.capture)
+        with self.assertRaises(GuardError):
+            guard.review(Review((), candidate=None))
+        self.assertEqual(guard.capture, {})
+
     def test_context_budget_preserves_policy_task_and_candidate(self):
         transport = Transport(forecast([]))
         world = author_world(self.author, transport)

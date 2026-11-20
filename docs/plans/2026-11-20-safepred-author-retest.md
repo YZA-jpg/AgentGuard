@@ -14,7 +14,7 @@ Use the unmodified author checkout `YurunChen/SafePred@495890eafce02f9990e494493
 
 ## Policies and evaluation
 
-Extract policies using the real author `LLMRuleExtractor.extract_rules_from_text` and the same frozen Qwen3-8B backbone, temperature 0.3, 8192-token extraction budget. Preserve its validation, deduplication, policy renumbering and fixed P000. No handwritten five-policy set or per-test-case policy edits. Sources are committed under `policies/sources` with attribution:
+Extract policies using the real author CLI's complete `process_policy_input` workflow (extraction, review, deduplication, policy renumbering and fixed P000), with its LLM transport factory supplied the same frozen Qwen3-8B backbone, temperature 0.3, 8192-token extraction budget. No handwritten five-policy set or per-test-case policy edits. The earlier `LLMRuleExtractor.extract_rules_from_text` preparation is retained as a preliminary artifact, but formal policies use the complete released CLI workflow. Sources are committed under `policies/sources` with attribution:
 
 - ATBench: author-published safety definition and static taxonomy from the pinned AgentDoG unified template, excluding trajectory placeholders/output-format instructions.
 - SafetyDrift: author README's global labeling methodology and tool-level/coarse-risk limitations; exclude per-category violation frequencies, lookup tables, test trajectories, scenario risk profiles and expected-safe paths.

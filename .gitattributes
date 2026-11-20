@@ -14,5 +14,7 @@
 /agentguard/dreamguard*.py text eol=lf
 /tests/test_dreamguard.py text eol=lf
 /scripts/run-dreamguard*.sh text eol=lf
+/scripts/run-dreamguard-comparison.py text eol=lf
+/tests/test_dreamguard_comparison.py text eol=lf
 /requirements-native-dojo.txt text eol=lf
 /requirements-native-dojo-author.txt text eol=lf

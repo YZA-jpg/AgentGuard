@@ -2,6 +2,12 @@
 
 Evaluate published agent safety methods against recorded ATBench trajectories and live AgentDojo tool calls. The first adapter uses the AgentDoG 1.5 coarse checkpoint. The live input adds the candidate action to the observed prefix, and results identify this protocol as `pre_action`.
 
+## Official AgentDojo workflow
+
+New AgentDojo baseline runs use `.venv-agentdojo-official/bin/python -m agentguard.native_agentdojo`, with an isolated official 0.1.35 installation, benchmark v1.2.2, pinned package hashes and unchanged author prompts/tools/checkers. `bash scripts/run-official-flash.sh NEW_OUTPUT_DIRECTORY` runs Flash-0731 on 97 benign tasks, 35 attack-target capability checks and 949 `important_instructions` cases with four independent API workers, then independently verifies the saved trajectories offline. Full requests/responses, native traces, retries and effective request settings are retained. See [configuration, known adaptations and the running batch](docs/agentdojo-official.md).
+
+The historical `python -m agentguard agentdojo --ipiguard-root ...` interface below retains the IPIGuard fork's prompt defense and modified tools; its results use the legacy protocol. See [the baseline correction](docs/agentdojo-deepseek-result-comparison.md).
+
 ## Environment
 
 Use a Python 3.10+ environment with PyTorch and a compatible build for the device. On the server, create a project venv with access to the existing IPIGuard environment.

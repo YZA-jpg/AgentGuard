@@ -4,6 +4,8 @@
 
 **2026-11-20 AgentDojo 基线更正：历史 `None` / Flash 组仍继承 IPIGuard 的防注入系统提示，属于“无外接护栏 + 提示防御”，不能当作原生无防御基线。IPIGuard 还修改了部分工具接口。与 `deepseek_result` 在相同 925 个任务 ID 上比较，ASR 为对方 45.30%、历史 Pro 5.84%；详见 [配对审计与配置差异](agentdojo-deepseek-result-comparison.md)。原始结果保留，下一轮应统一原生运行框架后重建基线。**
 
+原生流程已建立并于 2026-11-20 15:35 启动 Flash-0731 完整复测：97 良性、35 能力检查、949 攻击，四进程并发。官方 112 个文件哈希固定，提示/工具/攻击/checker 直接复用作者实现。12 条小规模验收及实际请求的独立复核已通过，正式分数待完成后填写。详见 [新流程、参数与运行目录](agentdojo-official.md)。
+
 2026-11-19 复现要求更新：优先作者核心实现、权重和论文有效配置。SafePred-prompt 与 TRACES K=32 仅保留为历史适配实验，不作为原论文配置的复现成绩；DreamGuard 继续暂不计入。AgentDoG 200 条与论文全量范围不同，ShieldAgent 明确为 THU 官方判别器的迁移测试。详见 [逐项核对与修正计划](plans/2026-11-19-paper-faithful-baselines.md)。
 
 以下初始批次核对日期为 2026-11-16。已完成的正式任务在 `/data1/yaoziao/agentguard` 运行，本地模型使用一张 GPU。

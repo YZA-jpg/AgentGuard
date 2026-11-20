@@ -1,2 +1,9 @@
 # Frozen policy/source hashes must be identical on Windows and Linux.
 /policies/** text eol=lf
+# Preserve the exact already-frozen manifest bytes across platforms.
+/configs/agentdojo-official-v0.1.35.json -text
+/agentguard/native_agentdojo.py text eol=lf
+/tests/test_native_agentdojo.py text eol=lf
+/scripts/*official*.sh text eol=lf
+/scripts/verify-official-dojo.py text eol=lf
+/requirements-native-dojo.txt text eol=lf

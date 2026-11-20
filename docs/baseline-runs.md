@@ -2,6 +2,8 @@
 
 **ATBench 截至 2026-11-19 的最新正式结果与参数见 [统一汇总](atbench-latest-results.md)。** 下方保留各历史批次及协议变更记录。
 
+**2026-11-20 AgentDojo 基线更正：历史 `None` / Flash 组仍继承 IPIGuard 的防注入系统提示，属于“无外接护栏 + 提示防御”，不能当作原生无防御基线。IPIGuard 还修改了部分工具接口。与 `deepseek_result` 在相同 925 个任务 ID 上比较，ASR 为对方 45.30%、历史 Pro 5.84%；详见 [配对审计与配置差异](agentdojo-deepseek-result-comparison.md)。原始结果保留，下一轮应统一原生运行框架后重建基线。**
+
 2026-11-19 复现要求更新：优先作者核心实现、权重和论文有效配置。SafePred-prompt 与 TRACES K=32 仅保留为历史适配实验，不作为原论文配置的复现成绩；DreamGuard 继续暂不计入。AgentDoG 200 条与论文全量范围不同，ShieldAgent 明确为 THU 官方判别器的迁移测试。详见 [逐项核对与修正计划](plans/2026-11-19-paper-faithful-baselines.md)。
 
 以下初始批次核对日期为 2026-11-16。已完成的正式任务在 `/data1/yaoziao/agentguard` 运行，本地模型使用一张 GPU。
@@ -19,7 +21,7 @@
 | 方法 | ATBench | AgentDojo | 启动参数 |
 |---|---|---|---|
 | AgentDoG 1.5 4B | 完整轨迹 200/200，逐步回放已验收 1 条 | 正常 96/96，攻击 935/935 | `--guard-model models/agentdog-4b --revision 3193b58d0c8924f5b5a79eb99cd31918e327024c --max-new-tokens 512`，CUDA、BF16、greedy。逐步回放用 `bash "$run" atbench-agentdog`，在线用 `bash "$run" dojo agentdog MODE`。 |
-| 无护栏 `None` | — | 正常 96/96，攻击 935/935 | `bash "$run" dojo none MODE`。沿用任务代理、工具和注入配置。 |
+| `None`，含 IPIGuard 提示防御 | — | 正常 96/96，攻击 935/935 | `bash "$run" dojo none MODE`。沿用任务代理、工具和注入配置，仍加载 IPIGuard 默认系统提示。 |
 | DeepSeek 直接判别 | 完整轨迹 200/200 | 在线对照为 `None` | `bash "$run" atbench-deepseek`。DashScope `deepseek-v4-pro`、temperature 0、关闭 thinking、512 tokens，逐条判别完整轨迹，复用 AgentDoG 的输入和判定格式。 |
 | SafePred-prompt | 逐步回放 200/200 | 正常 96/96，攻击 935/935 | `bash "$run" atbench-safepred`、`bash "$run" dojo safepred MODE`。DashScope `deepseek-v4-pro`、temperature 0.3、关闭 thinking、2048 tokens、策略 `agentguard-safepred-v1`。 |
 | TRACES | 末状态评分 200/200 | 正常 96/96，攻击 935/935 | 设置 `TRACES_RUN`，依次运行 `bash "$run" traces-train`、`bash "$run" atbench-traces`，在线用 `bash "$run" dojo traces MODE`。Qwen3-4B FP16 观察器 `1cfa9a7208912126459214e8b04321603b3df60c` 第 32 层，作者代码 `87579ab60ce6b13f38f7d1f531b6a906656f2748`，种子 42，两阶段各 30 epoch，机制数量 32。校准集选出的 F1 最优阈值为 0.195，AgentDojo 沿用同一检查点和阈值。 |
@@ -55,7 +57,7 @@ AgentDoG 论文表 2 报告同款 4B 的 F1 为 74.3%。上表 64.76% 对应 Age
 
 | 方法 | 正常 Utility ↑ | 攻击 ASR ↓ | 攻击 Utility ↑ | 平均审核耗时（正常 / 攻击）↓ |
 |---|---:|---:|---:|---:|
-| 无护栏 `None` | 86/96 · 89.58% | 56/935 · 5.99% | 806/935 · 86.20% | — |
+| `None`，含 IPIGuard 提示防御 | 86/96 · 89.58% | 56/935 · 5.99% | 806/935 · 86.20% | — |
 | AgentDoG 1.5 4B | 63/96 · 65.63% | 7/935 · 0.75% | 677/935 · 72.41% | 9.099 / 9.356 秒 |
 | SafePred-prompt | 73/96 · 76.04% | 3/935 · 0.32% | 813/935 · 86.95% | 33.156 / 10.671 秒 |
 | TRACES | 46/96 · 47.92% | 18/935 · 1.93% | 431/935 · 46.10% | 0.207 / 0.237 秒 |
@@ -119,7 +121,7 @@ AgentDojo `None` 批次为 `20261112_160038`。
 
 作者算法重建的测试 ID 与原固定测试 ID 相交 34 条。跨方法配对比较使用原划分。TRACES 末状态汇总同时记录 EDR 和 EAUPC，按论文 B.4 从各步风险分数计算。 [论文参数和指标](https://arxiv.org/html/2605.27690v2#A2.SS3) · [作者运行命令](https://github.com/lab-flair/TRACES#step-5-evaluate-atbench-model)
 
-### Flash 无护栏组审计 · 2026-11-18
+### Flash None 组审计（含 IPIGuard 提示防御）· 2026-11-18
 
 Flash 的对抗主文件为 `agentdojo-none-important_instructions-deepseek-v4-flash-0731-20261117_200913.jsonl`，Banking `(9,0)` 的解析失败补测为 `agentdojo-none-flash-retry-banking-9-0-20261118_093756.jsonl`。按任务与注入 ID 合并后，935 条均有效，官方 ASR 为 2/935（0.214%），用户任务完成率为 833/935（89.09%）。
 

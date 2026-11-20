@@ -1,0 +1,2 @@
+# Frozen policy/source hashes must be identical on Windows and Linux.
+/policies/** text eol=lf

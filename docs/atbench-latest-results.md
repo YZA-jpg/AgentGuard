@@ -4,6 +4,8 @@
 
 **复现状态更新：完成运行不等于通过原论文复现验收。** 当前 SafePred-prompt 为手写适配、TRACES K=32 为非论文配置，均不纳入论文配置的复现主比较；AgentDoG 的 200 条结果也不是论文全量 ATBench 分数。ShieldAgent 是 THU 官方模型的 ATBench 迁移评测。以下保留历史运行数据，不构成严格复现排名。逐项差异与修正计划见 [论文一致性核对](plans/2026-11-19-paper-faithful-baselines.md)。
 
+2026-11-20：SafePred 作者核心已接入并通过原生提示/解析/评分/决策一致性测试，新的 Qwen3-8B 组已启动 ATBench 200 条、随后 SafetyDrift 72 条串行重测。新入口为 `agentguard.safepred_author_eval`，使用冻结的作者流程提取政策，不再使用下表的手写 SafePred-prompt。新结果尚在运行，不以校准 smoke 分数替代正式结果；完整参数见 [本轮协议](plans/2026-11-20-safepred-author-retest.md)。
+
 ## 固定配对 200 条：已运行记录
 
 统一使用 `splits/atbench-v1.json`：99 条危险、101 条安全。此表记录已运行的模型对照与方法适配。DreamGuard 方法尚待完善与验收，暂不纳入有效比较。TRACES 的不同划分见下一表。正类为危险轨迹。

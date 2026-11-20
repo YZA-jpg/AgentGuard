@@ -8,5 +8,8 @@
 /scripts/verify-official-dojo.py text eol=lf
 /scripts/check-pro-reference.py text eol=lf
 /scripts/run-reference-pro.sh text eol=lf
+/scripts/run-model-diagnostic.py text eol=lf
+/scripts/run-model-diagnostic.sh text eol=lf
+/tests/test_model_diagnostic.py text eol=lf
 /requirements-native-dojo.txt text eol=lf
 /requirements-native-dojo-author.txt text eol=lf

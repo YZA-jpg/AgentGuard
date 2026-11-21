@@ -1,0 +1,13 @@
+# Pro native-trajectory guard replay
+
+User requested using the newly verified Pro data to test the other guards. This batch is fixed-trajectory pre-execution auditing, not a counterfactual online ASR experiment.
+
+1. Validate the official Pro run (1081 verified cases, no query restarts), freeze the selected 97 benign + 949 attacked trajectories, exclude the35 capability checks from guard outcome metrics. Preserve source hashes, baseline outcomes and the official tool schemas.
+2. Normalize native FunctionCall/message structures without importing IPIGuard. Audit resolved tool arguments before their own result enters history, and include final assistant responses. For multiple calls, use the recorded sequential tool-execution order and only previous executed-call results. Reject malformed/missing/mismatched records instead of silently skipping.
+3. Reuse the AgentDoG official coarse template and the THU ShieldAgent official formatter/parser/generation configuration. Use native32k Shield context, 1024 output-token AgentDoG robustness setting already used in our validated author-format runs (not the512-token example). Record the budget distinction.
+4. For SafePred, run the unmodified author policy extraction workflow on the task-agnostic official AgentDojo system prompt, retain mandatory P000, freeze policy before any replay. Keep the existing Qwen3-8B and generation settings. Never derive policy from test outcomes/injection targets.
+5. Transfer the existing SafetyDrift-trained TRACES K8 with its frozen source-calibration threshold and DreamGuard v2 checkpoint/calibration. No AgentDojo training or threshold tuning. Document distinct model provenance and encoder/serialization differences.
+6. Implement causal adapter, final-response, malformed-source, state-reset, metric and resume tests. Run CPU tests and real-data input audit before starting eight calibration-free integration cases per method and then all1046. Smoke checks execution/parse only; no hyperparameter selection from smoke outcomes.
+7. Run SafePred on GPU3 and the other models sequentially on GPU4 if memory checks still pass. One model instance/state owner per process, restart state per case. All caches/results/policies under data1. Provide progress, errors and automatic summaries/verification; back up code/docs to GitHub.
+
+Metrics: successful-attack-source trajectory intervention rate; all-attacked-source intervention rate; benign-source intervention rate; measured audit latency; call/error/truncation counts. F1/Recall/FPR/ASR/guarded Utility remain null without independently annotated action safety or fresh online tool execution. An intervention after a harmful source action need not prevent the attack, so never call a blocked source trajectory a prevented attack.

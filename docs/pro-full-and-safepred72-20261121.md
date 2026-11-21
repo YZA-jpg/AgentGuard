@@ -2,6 +2,8 @@
 
 用户于 2026-11-21 明确授权代为启动。两个任务可以同时运行：Pro 使用4路外部 API，SafePred 使用 GPU3 的单个 Qwen3-8B 实例。
 
+2026-11-22完成核验：两项均已全部结束并复核通过。Pro全量ASR=459/949（48.37%）；SafePred SafetyDrift72的F1=26.09%。详见[完成结果](pro-full-safepred72-results-20261122.md)。下文保留启动配置与当时验收记录。
+
 ## AgentDojo Pro：只替换 Flash 全量组的 backbone
 
 | 参数 | 本轮设置 |

@@ -64,3 +64,11 @@ tmux -S /data1/yaoziao/agentguard/cache/tmux/safepred-sd72.sock attach -t safepr
 离开但继续运行：`Ctrl+b`，松开，再按`d`。启动器分别为`scripts/run-official-pro.sh`和`scripts/run-safepred-safetydrift-only.sh`，本批次由助手代为启动，无需重复执行。
 
 Pro同时具有`batch.done`、`verified.done`、`batch.exit=0`以及匹配计划的summary，才算正式组完成并复核。SafePred批次具有`batch.done`、`batch.exit=0`和`safetydrift-formal/verification.json`；只看到模型加载完成或tmux窗口不代表评测完成。
+
+## 启动验收记录
+
+- 代码与参数提交：`23baac76cbfdafee0d095bd3169bf1b2c73214c2`，已备份GitHub。服务器14项相关测试通过（5项Pro对照、6项真实SafePred作者核心、3项分组回归），无跳过。
+- Pro离线核对1081条计划及全部输入通过；旧Flash元数据缺省的排除列表按空列表处理，实际任务范围逐条相同。工作区/Slack/Travel/Banking攻击数分别为560/105/140/144。
+- Pro8条验收全部完成、零错误，独立复核通过；实际API响应模型为`deepseek-v4-pro`，没有显式发送思考开关，脱敏endpoint与Flash相同。启动验收时正式组已完成6/1081、零错误；这不是最终成绩。
+- SafePred正式manifest确认72个ID、原采样配置、原政策哈希及上述delivered source commit。进程972159已在GPU3获得约17158MiB显存并进入审核；首条完整轨迹尚未写入进度时不报告检测分数。
+- 旧ATBench200的summary原SHA256为`bc0a47314dcf7dfbcb768b6f0697c7fc0d468e46ce74c8f2fc6f54b6a9113091`，补测脚本不调用ATBench入口。最终只需检查新SafetyDrift目录的summary和verification。

@@ -51,6 +51,18 @@ GPU3单独运行SafePred政策抽取、验收与正式回放；GPU4先依次验�
 
 8项CPU测试及真实Pro数据覆盖核验已通过，测试覆盖未来结果隔离、工具对应、自然语言终答、pending排除、状态重置、指标命名及结果篡改检查。论文/作者资产来源：[AgentDoG](https://github.com/AI45Lab/AgentDoG)、[ShieldAgent-THU](https://huggingface.co/thu-coai/ShieldAgent)、[SafePred](https://github.com/YurunChen/SafePred)、[TRACES](https://github.com/lab-flair/TRACES)、[DreamGuard论文](https://arxiv.org/html/2608.05695v1)。
 
+`comparison`在阶段结束时刷新；实时阶段及逐例进度以各模型`state.json`和`progress.json`为准。`truncated_reviews`统计后端显式提供的截断标记，目前主要来自Shield/SafePred；TRACES及DreamGuard应同时查看其7500/2048固定token上限，不能把该计数为0解释为无截断。AgentDoG当前依赖缺少FLA/causal-conv1d快速路径，沿用已验证Torch回退，相关延迟不能直接与启用快速路径的硬件结果比较。
+
+## 启动验收（2026-11-22）
+
+源代码提交`2289bf53467c2cc8a349b9938cb79775c919e98f`，已同步服务器和GitHub。公共运行环境及GPU UUID记录在批次`runtime-environment.json`；两lane实际GPU占用已核实。
+
+- AgentDoG、ShieldAgent、TRACES、DreamGuard均完成8/8接口验收，零错误，各自`verification.status=complete_verified`。
+- AgentDoG于北京时间01:22:43进入正式1046条回放，启动验收检查时已写入首条有效案例。
+- ShieldAgent→TRACES→DreamGuard已排入同一GPU4后续正式队列，沿用各自已经通过验收的设置。
+- SafePred已完成作者政策抽取并冻结P000/P001；验收检查时已完成3/8且无错误，随后自动接正式1046条。
+- 目前没有报告本轮正式检出分数；smoke只验收执行、解析与因果输入，不用于选择参数。
+
 ```bash
 cd /data1/yaoziao/agentguard
 batch=results/agentdojo-pro-guard-replay-20261122_011126

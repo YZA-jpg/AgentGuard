@@ -18,3 +18,8 @@
 /tests/test_dreamguard_comparison.py text eol=lf
 /requirements-native-dojo.txt text eol=lf
 /requirements-native-dojo-author.txt text eol=lf
+/agentguard/safepred_author_eval.py text eol=lf
+/scripts/check-pro-flash-parity.py text eol=lf
+/scripts/run-safepred-safetydrift-only.sh text eol=lf
+/tests/test_safepred_author_splits.py text eol=lf
+/tests/test_pro_flash_parity.py text eol=lf

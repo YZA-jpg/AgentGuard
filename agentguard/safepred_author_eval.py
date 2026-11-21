@@ -29,7 +29,7 @@ def cases_for(args):
                   'contexts': list(replay_reviews(context))} for i, label, context in rows]
     else:
         from .safetydrift_data import reviews, selected_cases
-        scope = 'calibration' if args.mode == 'smoke' else 'test'
+        scope = 'calibration' if args.mode == 'smoke' else 'heldout'
         selected, _ = selected_cases(args.data_root, args.split_manifest, scope)
         cases = [{'case_id': c.case_id, 'label': c.label, 'first_hazard': c.first_hazard,
                   'contexts': list(enumerate(reviews(c)))} for c in selected]

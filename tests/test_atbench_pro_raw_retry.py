@@ -60,6 +60,14 @@ class RetryTests(unittest.TestCase):
         self.assertEqual(len(result['retry_attempts']),1);self.assertEqual(waits,[])
         self.assertTrue(result['retry_stopped_for_quota'])
         self.assertEqual(error_details(Quota())['provider_error_code'],'insufficient_quota')
+        class BadOutput:
+            def create(self,**kwargs):
+                return SimpleNamespace(id='id',model='deepseek-v4-pro',usage=None,
+                    choices=[SimpleNamespace(finish_reason='stop',message=SimpleNamespace(content='not JSON'))])
+        client=SimpleNamespace(chat=SimpleNamespace(completions=BadOutput()))
+        result=retry_one(example(),client,'deepseek-v4-pro',1024,max_retries=5,sleep=waits.append)
+        self.assertEqual(result['status'],'parse_error')
+        self.assertEqual(len(result['retry_attempts']),1);self.assertEqual(waits,[])
 
     def test_persistent429_has_a_finite_attempt_budget(self):
         class Call:

@@ -1,6 +1,6 @@
 # AgentDojo 回放：成功攻击轨迹与良性任务轨迹分类
 
-统计快照：北京时间2026-11-23 12:15:47。由已保存结果进行CPU后处理，无模型推理、无API请求、未改写原始回放。这是项目事后补充分析，不是AgentDojo作者原生指标或预注册安全标签实验。
+统计快照：北京时间2026-11-23 20:00:32。SafePred已完整完成并纳入五方法共同子集。由已保存结果进行CPU后处理，无模型推理、无API请求、未改写原始回放。这是项目事后补充分析，不是AgentDojo作者原生指标或预注册安全标签实验。
 
 协议：`official-source-success-vs-benign-trajectory-classification-v1`。源正类459、源负类97；主表统一有效子集555条：458正、97负。
 
@@ -12,6 +12,7 @@
 | shieldagent | 555 | 447/74/23/11 | 91.32% | 97.60% | 76.29% | 60.65% | 0.3672 |
 | traces | 555 | 418/73/24/40 | 88.09% | 91.27% | 75.26% | 58.00% | 0.0909 |
 | dreamguard | 555 | 458/97/0/0 | 90.42% | 100.00% | 100.00% | 50.00% | 0.0874 |
+| safepred | 555 | 380/22/75/78 | 88.37% | 82.97% | 22.68% | 80.14% | 28.6503 |
 | 全部拦截参考 | 555 | 458/97/0/0 | 90.42% | 100.00% | 100.00% | 50.00% | — |
 
 由于正类比例较高，全部拦截也有较高F1；FPR100%、balanced accuracy50%清楚显示它不能区分两类。秒/审核仅对上述共同子集重算，与1046全批次延迟的分母不同。
@@ -22,7 +23,7 @@
 | shieldagent | complete_verified | 1046/1046 | 0 | 0 |
 | traces | complete_verified | 1046/1046 | 0 | 0 |
 | dreamguard | complete_verified | 1046/1046 | 0 | 0 |
-| safepred | pending | 1003/1046 | 0 | 43 |
+| safepred | complete_verified | 1046/1046 | 0 | 0 |
 
 共同排除的解析错误/无效ID：`under_attack--banking--user_task_6--injection_task_1`。所有已完成方法同时排除这些ID；错误没有改写为安全。
 
@@ -38,9 +39,9 @@ AgentDoG作者也把“遭遇攻击但妥善处理”定义为safe；出现攻�
 
 ## 结果和重算命令
 
-当前服务器输出：`/data1/yaoziao/agentguard/results/agentdojo-replay-classification-20261123_121547`，包含`comparison.md`和`summary.json`。JSON保存共同ID、排除ID、每个输入结果文件哈希、各方法独立有效样本指标和错误覆盖率；原始轨迹不入Git。
+当前服务器输出：`/data1/yaoziao/agentguard/results/agentdojo-replay-classification-20261123_200029`，包含`comparison.md`和`summary.json`。JSON保存共同ID、排除ID、每个输入结果文件哈希、各方法独立有效样本指标和错误覆盖率；原始轨迹不入Git。此前12:15的四组快照保留于旧目录，不再作为最新表。
 
-SafePred结束后执行以下命令即可补入完整表，不需要重跑任何模型；若仍未完成，它会继续标为pending。
+以下命令可在新时间戳目录复核五组完整表，不需要重跑任何模型；当前已完成，无需为了补入SafePred而重复执行。
 
 ```bash
 cd /data1/yaoziao/agentguard

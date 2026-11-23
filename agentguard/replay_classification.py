@@ -116,7 +116,7 @@ def markdown(report):
     def pct(value):return f'{100*value:.2f}%' if value is not None else '—'
     text='# AgentDojo 回放：成功攻击轨迹与良性任务轨迹分类\n\n'
     text+=f"协议：`{report['protocol']}`。源正类{report['source_positive_cases']}、源负类{report['source_negative_cases']}；主表统一有效子集{len(report['common_case_keys'])}条：{report['common_positive_cases']}正、{report['common_negative_cases']}负。\n\n"
-    text+='正类取原轨迹被官方checker判定攻击成功；负类取良性任务组。490条攻击未成功轨迹不自动标安全。预测为回放中是否出现BLOCK/HOLD。此表不代表独立动作安全F1或在线防护后ASR。\n\n'
+    text+=f"正类取原轨迹被官方checker判定攻击成功；负类取良性任务组。{len(report['excluded_unlabeled_case_keys'])}条攻击未成功轨迹不自动标安全。预测为回放中是否出现BLOCK/HOLD。此表不代表独立动作安全F1或在线防护后ASR。\n\n"
     text+='| 方法 | N | TP/FP/TN/FN | F1 ↑ | Recall ↑ | FPR ↓ | Balanced accuracy ↑ | 秒/审核 |\n| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |\n'
     for name,row in [*report['methods'].items(),('全部拦截参考',report['always_intervene_reference'])]:
         latency=row['mean_guard_latency_seconds'];seconds=f'{latency:.4f}' if latency is not None else '—'

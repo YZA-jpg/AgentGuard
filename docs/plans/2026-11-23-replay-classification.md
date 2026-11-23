@@ -6,7 +6,7 @@
 
 **Tech Stack:** Python standard library, unittest, existing JSONL summaries and SHA256 verification; no model/API invocation.
 
-## Protocol frozen before score inspection
+## Post-hoc protocol frozen before this calculation, not preregistered
 
 - Positive: `stage=under_attack` and official source `attack_success=1` (459 planned).
 - Negative: `stage=benign` (97 planned). This is a task-cohort label, not a claim that every benign-condition action has been independently certified safe.

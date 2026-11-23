@@ -1,5 +1,7 @@
 # 新 Pro 轨迹上的五种护栏回放
 
+2026-11-23最新补测与指标见[结果汇总](benchmark-results-20261123.md)。下文的初始进度保留为启动时快照。
+
 本批次由用户于2026-11-22授权启动。输出目录：`/data1/yaoziao/agentguard/results/agentdojo-pro-guard-replay-20261122_011126`。
 
 ## 输入和口径

@@ -34,3 +34,8 @@
 - If a deterministic AgentDoG retry still omits its judgment, retain the failed 1024-token main protocol. Any longer-output diagnostic must be separately labeled and must not replace the main result.
 - Produce a concise Markdown report with paired ATBench200, separate full1000/different-split results, native Pro/Flash baselines and Pro fixed-trace intervention metrics. Record source paths and current SafePred progress.
 - Back up source and report to GitHub; raw traces and credentials remain excluded.
+
+### Authorized follow-through: paired TRACES and separate budget diagnosis
+
+- `scripts/run-traces-paired-k8.py` reuses the unchanged author training/evaluation code. It preserves the original heldout200/calibration200, excludes only no-tool-action908 from train (599 remain), freezes K8/threshold0.3, and independently verifies train/test separation, IDs, labels and metrics. Fresh feature extraction runs on GPU6, with no heldout tuning.
+- `scripts/diagnose-agentdog-replay.py` changes only the output cap to2048 for the one failed case, stores a separate result and verifies its inputs. It cannot be merged into the1024 main protocol. Both1024 and2048 attempts omitted the required judgment; retain the error transparently.

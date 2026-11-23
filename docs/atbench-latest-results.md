@@ -1,5 +1,7 @@
 # ATBench 最新正式结果
 
+2026-11-23更新：最新作者核心SafePred、DreamGuard v2、已完成的配对TRACES补测及AgentDojo结果见[最新汇总](benchmark-results-20261123.md)。下文保留11月19日的历史快照，不代表这些任务仍在运行或DreamGuard尚未验收。
+
 核对日期：2026-11-19。已逐条核对正式文件的测试 ID、原始标签、混淆矩阵和 F1/Recall/FPR；以下各组均完整完成、错误数为 0。原始结果位于服务器 `/data1/yaoziao/agentguard/results`。本地机器可读汇总为 `results/atbench-latest-summary-20261119.json`。
 
 **复现状态更新：完成运行不等于通过原论文复现验收。** 当前 SafePred-prompt 为手写适配、TRACES K=32 为非论文配置，均不纳入论文配置的复现主比较；AgentDoG 的 200 条结果也不是论文全量 ATBench 分数。ShieldAgent 是 THU 官方模型的 ATBench 迁移评测。以下保留历史运行数据，不构成严格复现排名。逐项差异与修正计划见 [论文一致性核对](plans/2026-11-19-paper-faithful-baselines.md)。

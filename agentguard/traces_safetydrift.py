@@ -66,6 +66,9 @@ def train(args):
                 "observer": str(args.observer.resolve()), "observer_revision": OBSERVER_REVISION,
                 "layer": OBSERVER_LAYER, "mechanisms": 8, "seed": 42, "smoke": args.smoke,
                 "split_sha256": sha256(args.split_manifest.read_bytes()).hexdigest(),
+                "implementation_sha256": {
+                    name: sha256((Path(__file__).parent / name).read_bytes()).hexdigest()
+                    for name in ("safetydrift_data.py", "traces_safetydrift.py", "traces.py")},
                 "train_ids": [c.case_id for c in train_cases],
                 "calibration_ids": [c.case_id for c in calibration_cases],
                 "heldout_ids": [c.case_id for c in heldout],
@@ -138,9 +141,6 @@ def train(args):
     manifest = {**metadata, "threshold": float(threshold), "threshold_source": "calibration_max_prefix_f1",
                 "calibration_metrics": evaluate.binary_metrics(labels, risks, threshold),
                 "configuration": config_values,
-                "implementation_sha256": {
-                    name: sha256((Path(__file__).parent / name).read_bytes()).hexdigest()
-                    for name in ("safetydrift_data.py", "traces_safetydrift.py", "traces.py")},
                 "checkpoint_sha256": {
                     name: sha256((directory / name).read_bytes()).hexdigest()
                     for name in ("stage_a_latent_mechanism.pt", "traces-stage-b.pt")},

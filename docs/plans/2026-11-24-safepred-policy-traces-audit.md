@@ -48,3 +48,11 @@ Files: create `scripts/run-safepred-policy-v2.sh`; reuse `agentguard.safepred_au
 1. Run new CPU tests locally and on the server; run targeted native SafePred and data-boundary regressions using real author modules with simulated transport. Validate launch shell syntax and data audit without generating model predictions.
 2. Sync only intended files under `/data1/yaoziao/agentguard`, compare LF-normalized hashes, back up source and documentation to the user's GitHub. Preserve the six existing user drafts byte-for-byte.
 3. Report TRACES audit evidence and remaining limits, distinguish repaired tooling from not-yet-run scores, and give concrete start commands.
+
+## Audit-driven refinement before formal experiments
+
+CPU audit confirms original72 category-majority F1=92.31%, scenario-majority F1=97.30% (fit on train only), versus TRACES96%. All37 test scenarios appear in training;35/72 test trajectories share early prefixes. No heldout feature rows occur in actual training tables, and saved checkpoint/causal decisions verify.
+
+The separate seed42 scenario split has207/72/73 trajectories across23/8/8 scenarios, but its category-majority diagnostic is already100% F1. Therefore do not automatically retrain it or pretend scene isolation alone repairs the benchmark; retain it as an optional, transparently confounded diagnostic. Prioritize reporting shortcuts and mixed-label performance; future stronger data need matched safe/unsafe task pairs. Do not change seeds based on these findings.
+
+Short real-Qwen policy extraction plus synthetic-only contracts is code integration acceptance, not a formal72/1046 benchmark run. Keep its artifacts isolated; user launches formal tests after admission.

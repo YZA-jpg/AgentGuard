@@ -10,7 +10,7 @@ import random
 
 from .guard import json_text
 from .safetydrift_data import load_cases, reviews, selected_cases
-from .traces import to_events
+from .traces_safetydrift import safety_events
 
 
 def digest(value):
@@ -42,7 +42,7 @@ def majority_baseline(train, test, key):
 def prefix_hashes(case):
     # Exactly the causal event surface supplied to the author formatter, before
     # formatting/token truncation. Full-case hashes do not catch shared prefixes.
-    return [digest(to_events(context)) for context in reviews(case)]
+    return [digest(safety_events(context)) for context in reviews(case)]
 
 
 def scenario_partition(cases, scenario_ids, seed=42):
@@ -112,6 +112,8 @@ def audit(root, manifest_path, training_run=None):
         return {a+'__'+b: len(sets[a] & sets[b])
                 for a, b in (('train', 'calibration'), ('train', 'heldout'), ('calibration', 'heldout'))}
     result = {'source_sha256': source_hash, 'split_sha256': sha256(Path(manifest_path).read_bytes()).hexdigest(),
+              'audit_implementation_sha256': sha256(Path(__file__).read_bytes()).hexdigest(),
+              'input_adapter_sha256': sha256((Path(__file__).parent/'traces_safetydrift.py').read_bytes()).hexdigest(),
               'counts': {name: {'total': len(rows), 'unsafe': sum(r.label for r in rows),
                                'scenarios': len(scenario_sets[name])} for name, rows in groups.items()},
               'shared_scenarios': overlaps(scenario_sets), 'shared_full_causal_event_surfaces': overlaps(full_sets),

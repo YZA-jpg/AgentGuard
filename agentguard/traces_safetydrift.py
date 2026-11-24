@@ -51,7 +51,7 @@ def train(args):
     import stage_a_atbench_trace as stage_a
     import stage_b_atbench_trace_v3 as stage_b
 
-    train_cases, _ = selected_cases(args.data_root, args.split_manifest, "train")
+    train_cases, split_info = selected_cases(args.data_root, args.split_manifest, "train")
     calibration_cases, _ = selected_cases(args.data_root, args.split_manifest, "calibration")
     heldout, _ = selected_cases(args.data_root, args.split_manifest, "heldout")
     if args.smoke:
@@ -69,8 +69,11 @@ def train(args):
                 "train_ids": [c.case_id for c in train_cases],
                 "calibration_ids": [c.case_id for c in calibration_cases],
                 "heldout_ids": [c.case_id for c in heldout],
-                "adaptation": ["Original 72 author test IDs retained; duplicate development inputs removed",
-                               "Remaining development traces split 80/20 by category and label, seed 42",
+                "split_protocol": split_info.get('protocol', 'original author72; development trajectory split'),
+                "author_test_preserved": split_info.get('author_test_preserved', False),
+                "adaptation": ["Original 72 test IDs retained" if split_info.get('author_test_preserved') else
+                               "Separate scenario-disjoint diagnostic; original author72 not replaced",
+                               "Split IDs frozen before training; calibration only checkpoint/threshold selection",
                                "Both tool and response decisions mapped to action-end events",
                                "Author ATBench training modules reused on SafetyDrift; K=8 matches paper",
                                "Checkpoint and threshold selected only on calibration traces"]}

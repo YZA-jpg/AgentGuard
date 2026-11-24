@@ -1,8 +1,8 @@
 # DreamGuard：方法、代码与复现边界
 
-更新：2026-11-21。当前版本：`dreamguard-paper-reproduction-v2`。
+更新：2026-11-24。当前版本：`dreamguard-paper-reproduction-v2`。
 
-本轮完成的是可运行的方法复现代码与 CPU 验证。没有启动正式训练，也没有得到可报告的新版 DreamGuard benchmark 分数。旧实验目录与 checkpoint 保留；新版不能复用旧版权重和校准结果。
+v1/v2正式训练与评测已完成。v2在SafetyDrift原测试72条得到F1 97.44%、Recall100%、FPR5.88%；源校准迁移到ATBench配对200条时FPR100%，AgentDojo回放也全拦截。11月24日冻结模型、只用ATBench独立开发集重新校准的补充实验得到F1 10.53%、Recall6.06%、FPR8.91%，检测有效性仍未修好。详见[两项修复与代码解释](guard-repair-and-dreamguard-20261124.md)和[SafetyDrift当前六组结果](safetydrift-latest-results-20261124.md)。下面保留实现说明与原验证过程；所有结果均为独立方法复现，不能称作者checkpoint结果。
 
 ## 1. 作者资产核查
 
@@ -53,7 +53,7 @@ flowchart LR
 
 `projection_deduplicate()` 按模型真正能看到的任务、观测序列和动作序列去重。先保留所有作者测试 ID，再保留校准样本，最后清理训练副本。原来的通用清单还包含思考文本和工具信息，而本编码适配没有使用这些字段，所以还发现并删除了一条跨训练/校准重复。删除明细写入运行 manifest；原始数据不被修改。
 
-`target_examples()` 支持 ATBench 全量 1000 条，或历史 200 条留出集；候选动作会去掉额外结果字段。ATBench 标签只用于汇总，不用于训练、选参数或校准。
+`target_examples()` 支持 ATBench 全量 1000 条，或历史 200 条留出集；候选动作会去掉额外结果字段。原源迁移协议中ATBench标签只用于汇总，不用于训练、选参数或校准。11月24日新增的独立`dream_transfer.py`目标域补充实验只在原calibration200上校准，再评测heldout200，不替换原协议。
 
 ### `agentguard/dreamguard_model.py`：世界模型和两个风险头
 
@@ -113,7 +113,7 @@ flowchart LR
 
 ### `agentguard/dreamguard.py`：实验编排
 
-`--stage prepare` 生成特征；`train` 完成两个训练阶段与校准；`evaluate` 只加载已完成的匹配模型和阈值；`all` 顺序执行全部流程。同一个 checkpoint 与校准文件用于 SafetyDrift 测试和 ATBench 迁移，不在 ATBench 上重新调阈值。
+`--stage prepare` 生成特征；`train` 完成两个训练阶段与校准；`evaluate` 只加载已完成的匹配模型和阈值；`all` 顺序执行全部流程。原协议用同一个checkpoint与源校准文件测试SafetyDrift并迁移ATBench；目标域开发校准是另存的新实验，不更改原校准文件。
 
 运行目录保存代码/数据哈希、模型配置、编码器 revision、版本环境、重复删除明细、checkpoint、训练日志、36 组校准结果，以及逐轨迹决策 JSONL。脚本用 `flock` 防止两个进程同时写同一运行目录。
 
@@ -190,11 +190,11 @@ grep -H '"record_type":"overall_summary"' "$run"/*.jsonl
 
 输出命名为 `safetydrift-时间戳.jsonl`、`atbench-时间戳.jsonl`；错误中断不会产生成功汇总。代码测试使用合成数据的小网络，不使用模型效果作为验收条件。真实数据适配验收只读文件、校验数量与隔离，不运行正式推理。
 
-## 7. 本轮验证记录
+## 7. 2026-11-21代码完成时的历史验证记录
 
 - 服务器现有环境：Python 3.10.21、PyTorch 2.5.1+cu124、Transformers 5.2.0；未改动依赖环境。
 - `python -m unittest discover -s tests -p test_dreamguard.py -v`：15 项全部通过，CPU 小网络及模拟编码器，没有加载真实 Qwen 权重或使用 GPU。
 - 验证包含输入投影去重、后继/未来观测隔离、prefix 标签、按轨迹归一化、ST 梯度、风险阶段 GRU 冻结、Adam/RNG 恢复、PASS 提交、阈值行为、严格 PHIR、批量编码 padding，以及 prepare/train/calibrate/evaluate 全流程。
 - 论文默认尺寸的随机初始化模型完成 CPU 前向：30,440,706 个参数，2 步 hazard 输出形状 `[1,2]`，数值有限。此项不衡量检测效果。
 - 两个启动脚本通过 `bash -n`，CLI `--help` 可运行；真实数据适配范围已按上表核验。
-- 未执行真实编码器的 GPU 端到端测试、正式训练或正式 benchmark；这些是启动命令运行后需要验收的下一层。
+- 当时未执行真实编码器GPU正式训练或benchmark。之后v1/v2训练与测试已完成，当前结果以文首11月24日链接为准，不再处于仅CPU验收阶段。

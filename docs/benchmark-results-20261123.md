@@ -2,6 +2,8 @@
 
 核对快照：2026-11-23T20:00:32+08:00（北京时间）。新Pro原始JSON组38条429已全部补齐，SafePred1046条回放也已完成并核验。只纳入当前注明协议的结果；旧手写SafePred-prompt、TRACES K32、IPIGuard旧AgentDojo协议不混入本表。完成运行与复现论文数值是不同结论。[近一周简报和下一步](weekly-summary-20261123.md)。
 
+2026-11-24补充：AgentDoG单次防循环恢复变体已补齐1046条，新增共同556条代理分类表；原1024解码协议555条主表保留。DreamGuard目标域开发校准降低误报但严重漏报，不能称修复成功。见[修复及DreamGuard代码解释](guard-repair-and-dreamguard-20261124.md)、[SafetyDrift当前六组结果](safetydrift-latest-results-20261124.md)。
+
 ## 本轮补测
 
 - ShieldAgent-THU / SafetyDrift 原测试72：完成并核验，零错误。TP/FP/TN/FN=19/16/18/19；F1 **52.05%**、Recall **50.00%**、FPR **47.06%**、Latency **0.3094秒/审核**。333次审核，无输入截断、无失败重试；PHIR36.84%、MAS4.1429步；缺少恢复动作标签，recovery FPR为空。

@@ -4,6 +4,8 @@
 
 2026-11-24补充：AgentDoG单次防循环恢复变体已补齐1046条，新增共同556条代理分类表；原1024解码协议555条主表保留。DreamGuard目标域开发校准降低误报但严重漏报，不能称修复成功。见[修复及DreamGuard代码解释](guard-repair-and-dreamguard-20261124.md)、[SafetyDrift当前六组结果](safetydrift-latest-results-20261124.md)。
 
+2026-11-24政策审计补充：SafePred原生评分与保存输出一致，但SafetyDrift政策源偏标注说明、AgentDojo政策覆盖不足；不能因作者核心调用正确就声称完整复现配置已验收。原数值保留，详见[SafePred审计及论文参考对照](safepred-audit-20261124.md)。
+
 ## 本轮补测
 
 - ShieldAgent-THU / SafetyDrift 原测试72：完成并核验，零错误。TP/FP/TN/FN=19/16/18/19；F1 **52.05%**、Recall **50.00%**、FPR **47.06%**、Latency **0.3094秒/审核**。333次审核，无输入截断、无失败重试；PHIR36.84%、MAS4.1429步；缺少恢复动作标签，recovery FPR为空。

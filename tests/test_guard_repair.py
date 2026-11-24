@@ -1,8 +1,10 @@
 import copy
+from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from agentguard.agentdog_recovery import repetitive_suffix,recovery_eligible,merge_recovery
-from agentguard.dream_transfer import disjoint_calibration,validate_domain
+from agentguard.dream_transfer import disjoint_calibration,validate_domain,target_rows
 
 
 class RecoveryTests(unittest.TestCase):
@@ -43,6 +45,19 @@ class TransferTests(unittest.TestCase):
         validate_domain(artifact,'atbench',['t'])
         with self.assertRaises(ValueError):validate_domain(artifact,'agentdojo',['t'])
         with self.assertRaises(ValueError):validate_domain({**artifact,'test_ids':['c']},'atbench',['c'])
+
+    def test_target_candidate_excludes_embedded_results_and_own_observation(self):
+        from agentguard.guard import Review
+        history=({'role':'user','content':'task'},
+            {'role':'agent','action':'{"name":"read","arguments":{},"result":"EMBEDDED_FUTURE"}'},
+            {'role':'environment','content':'OWN_RESULT'},
+            {'role':'agent','action':'{"name":"write","arguments":{}}'})
+        context=Review(history)
+        manifest={'source_sha256':'digest','splits':{'heldout':[1]}}
+        with patch('agentguard.atbench.read_split',return_value=manifest),patch('agentguard.atbench.read_rows',return_value=('digest',[('1',0,context)])):
+            row=target_rows(Path('data'),Path('split'),'heldout')[0]
+        self.assertNotIn('EMBEDDED_FUTURE',row['actions'][0])
+        self.assertEqual(row['observations'],['','OWN_RESULT'])
 
 
 if __name__=='__main__':unittest.main()

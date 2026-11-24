@@ -33,7 +33,10 @@ def target_rows(data,manifest,scope):
         for _,review in contexts:
             observations.append(next((content_text(m.get('content')) for m in reversed(review.history)
                 if m['role'] in ('environment','tool')),''))
-            actions.append(json_text(review.candidate))
+            candidate=review.candidate
+            action=({'name':candidate['name'],'arguments':candidate['arguments']}
+                    if 'name' in candidate else {'response':candidate['response']})
+            actions.append(json_text(action))
         if not contexts:raise ValueError('No candidate actions')
         examples.append({'id':key,'dataset':'atbench','split':scope,'task':contexts[0][1].task,
             'observations':observations,'actions':actions,'successors':[], 'label':label,'first_hazard':None})

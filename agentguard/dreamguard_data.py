@@ -12,6 +12,23 @@ def fingerprint(value):
     return sha256(json_text(value).encode()).hexdigest()
 
 
+def supervision_coverage(rows):
+    """Count actual pre-hazard supervision without changing labels or splits."""
+    from collections import defaultdict
+    counts = defaultdict(lambda: [0, 0])
+    for row in rows:
+        if row['split'] not in ('train', 'calibration'):
+            continue
+        first = row['first_hazard']
+        stop = len(row['actions']) if first is None else first + 1
+        for step, action in enumerate(row['actions'][:stop]):
+            tool = json.loads(action).get('name', '<reply>')
+            counts[(row['split'], tool)][int(step == first)] += 1
+    return [{'split': split, 'tool': tool, 'safe_steps': values[0],
+             'hazard_steps': values[1], 'both_labels_present': all(values)}
+            for (split, tool), values in sorted(counts.items())]
+
+
 def source_examples(root, split_path):
     from .safetydrift_data import selected_cases
 
@@ -27,7 +44,7 @@ def source_examples(root, split_path):
                              "first_hazard": case.first_hazard})
     examples, discarded, test_duplicates = projection_deduplicate(examples)
     verify_examples(examples)
-    manifest = {**manifest, "base_counts": manifest["counts"],
+    manifest = {**manifest, "supervision_coverage": supervision_coverage(examples), "base_counts": manifest["counts"],
                 "counts": {name: {"total": sum(r["split"] == name for r in examples),
                                   "unsafe": sum(r["split"] == name and r["label"] for r in examples)}
                            for name in ("train", "calibration", "heldout")},

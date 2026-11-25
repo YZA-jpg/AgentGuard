@@ -11,7 +11,7 @@
 SafePred 官方合并权重已落在 data1 的 models/safepred-8b-author。版本 430a412fa7d055fa5c8348e73d9fe20ac251949a。入口 agentguard.safepred_distilled 对照冻结 v2 政策和原状态映射，固定 temperature 0.3、历史7、单候选、最大4000输出、关闭 thinking。45.3 来自 DreamGuard 的基线实验，论文未逐项给出其 SafePred 推理配置。正式命令在服务器项目根目录执行：
 
 ```bash
-tmux new-session -d -s safepred8b_sd72 'cd /data1/yaoziao/agentguard && env -u LD_LIBRARY_PATH CUDA_VISIBLE_DEVICES=4 HF_HUB_OFFLINE=1 OMP_NUM_THREADS=2 .venv/bin/python -u -m agentguard.safepred_distilled --out-dir results/safepred8b-sd72-$(date +%Y%m%d_%H%M%S)'
+tmux new-session -d -s safepred8b_sd72 'cd /data1/yaoziao/agentguard && env -u LD_LIBRARY_PATH CUDA_VISIBLE_DEVICES=0 HF_HUB_OFFLINE=1 OMP_NUM_THREADS=2 .venv/bin/python -u -m agentguard.safepred_distilled --out-dir results/safepred8b-sd72-$(date +%Y%m%d_%H%M%S)'
 ```
 
 DreamGuard 对照沿用冻结权重、校准57和测试72。固定种子20260701，分别按 argmax 或分类采样推断潜状态，再用对应推断模式在源校准集确定阈值。两者都是 TP38/FP2/TN32/FN0、PHIR 94.74%，MAS 从3.36变为3.64。论文 PHIR 96.3%、MAS 3.63。此次只比较分类与时间步，缓存特征计时不进入主表。ATBench 固定开发集6安全＋6危险，两种推断仍然全部干预。该改动未达到跨域修复目的，保留原主表。结果在 results/dreamguard-latent-paired-20261125。此前目标域单独校准后 heldout200 的 FPR 8.91%、Recall 6.06%，提示特征区分能力有问题。下一步在开发域比较相同任务、相同动作而历史不同的配对，并核对与作者的序列化和校准配置。
@@ -22,3 +22,5 @@ TRACES 复用作者两个阶段，K=8、原观察器第32层，使用校准集�
 
 
 跨域开发误拦定位：两个潜状态模式的6条安全轨迹均为首步工具 BLOCK 3条、首步文本回复 BLOCK 1条、后续工具 HOLD 2条。即时风险和累计风险两条路径都参与了误报。ATBench 开发集候选中的文本回复为296/875，SafetyDrift 校准集为54/484。该输入差异单独不能解释误报。TRACES 原始日志的 PHIR 为94.74%，MAS 为2.78，论文表2为87.1%和2.00。
+
+新增 ATBench 开发诊断：200 个不同任务，无同任务天然配对。固定哈希选 40 条估计无标签均值偏移，另 40 条评估。冻结原源域阈值和权重，全字段对齐后 FP 从22降至21、TP仍18；不足以采用。首步受控替换动作改变26/40个判决，替换任务改变6/40个判决。原始分数见服务器 results/dreamguard-alignment-dev-20261125。

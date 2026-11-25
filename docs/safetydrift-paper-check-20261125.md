@@ -40,3 +40,19 @@ SafetyDrift 训练与校准、ATBench 校准之间同名调用仅 send_email/sen
 因此此前提出的源域天然同工具异标签配对无法实施。DreamGuard 97.44%和TRACES96%的同源轨迹分类分数受该覆盖限制。高F1不能单独验证后果预测能力。代码 dreamguard_data.supervision_coverage 现在将实际监督前缀中的每工具正负样本数写入数据准备清单，可提前发现缺少反例的问题。当前公开标签和正式测试ID沿用。针对该数据新增同工具安全/危险反例需要额外标注与验证，属于新的数据扩展实验。
 
 逐动作审计核对缓存监督与原数据一致，训练/校准可见前缀标签冲突0组，跨训练/校准相同前缀99组。跨域模型效果修复仍待完成。下一步可验证开发集上的执行顺序、首个危险边界以及风险头的参数敏感性；未经核实不得把任意合成工具调用赋安全标签。
+
+### 共同划分复核（2026-11-26）
+
+依据 DreamGuard 论文附录 C.3，两种方法在本地对照中共用训练、校准和测试 ID。新清单 `splits/safetydrift-public-shared-v1.json` 使用既有 DreamGuard 可见输入去重结果，排除 TRACES 旧训练清单中的一条重复轨迹。服务器逐条核对通过，两个加载入口均得到 221/57/72 条相同 ID、标签和首次危险步。校准和测试列表及顺序与公开固定清单一致。DreamGuard 从旧、新清单加载的实际模型输入完全相同。
+
+作者清理后的 ID、最终 Scheme-D 权重和阈值、以及论文 TRACES 基线的完整运行配置仍未找到可核实的发布材料。共同划分对齐是本地对照修正。已有 96.00% 属于旧 222 条训练配置，新清单的正式 TRACES 指标待运行。
+
+```bash
+cd /data1/yaoziao/agentguard
+TRACES_DIAGNOSTIC_GPU=0 TRACES_DIAGNOSTIC_SPLIT=splits/safetydrift-public-shared-v1.json \
+  bash scripts/run-traces-scenario-diagnostic.sh
+```
+
+GPU 编号按启动时空闲卡替换。脚本依次训练、评估和核验，输出位于 results/traces-safetydrift-public-shared-v1-时间戳。DreamGuard 如另行重训，可向原 launcher 追加 --safetydrift-split splits/safetydrift-public-shared-v1.json 并使用新的运行目录。
+
+[DreamGuard 论文附录 C.3](https://arxiv.org/html/2608.05695v1#A3.SS3)

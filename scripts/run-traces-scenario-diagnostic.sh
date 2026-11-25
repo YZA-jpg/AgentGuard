@@ -11,7 +11,9 @@ export HF_HOME="$PWD/cache/huggingface" HF_XET_CACHE="$PWD/cache/xet" TMPDIR="$P
 export XDG_CACHE_HOME="$PWD/cache/xdg" TORCH_HOME="$PWD/cache/torch"
 export CUDA_CACHE_PATH="$PWD/cache/cuda" TRITON_CACHE_DIR="$PWD/cache/triton"
 mkdir -p "$TMPDIR" "$XDG_CACHE_HOME" "$CUDA_CACHE_PATH" "$TRITON_CACHE_DIR"
-run=${TRACES_DIAGNOSTIC_RUN:-results/traces-scenario-disjoint-$(TZ=Asia/Shanghai date +%Y%m%d_%H%M%S)}
+split=${TRACES_DIAGNOSTIC_SPLIT:-splits/safetydrift-scenario-disjoint-v1.json}
+[[ -f "$split" ]] || { echo "Missing split manifest: $split"; exit 2; }
+run=${TRACES_DIAGNOSTIC_RUN:-results/traces-$(basename "$split" .json)-$(TZ=Asia/Shanghai date +%Y%m%d_%H%M%S)}
 mkdir "$run"
 run=$(realpath "$run")
 exec > >(tee -a "$run/batch.log") 2>&1
@@ -26,7 +28,6 @@ finish() {
 trap finish EXIT
 py=(env -u LD_LIBRARY_PATH -u OPENAI_API_KEY -u OPENAI_BASE_URL .venv/bin/python -u)
 data=data/safetydrift/5c55e54b75c9c7ee2037db8f3dbd6ae6a7dab8a8
-split=splits/safetydrift-scenario-disjoint-v1.json
 printf 'train\n' > "$run/stage.txt"
 "${py[@]}" -m agentguard.traces_safetydrift --data-root "$data" --split-manifest "$split" \
     --out-dir "$run/trained" --observer models/qwen3-4b-observer --upstream vendor/TRACES

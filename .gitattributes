@@ -40,3 +40,4 @@
 /tests/test_safepred_parallel.py text eol=lf
 /scripts/run-safepred-development.sh text eol=lf
 /scripts/probe-safepred-observed-state.py text eol=lf
+/splits/safetydrift-public-shared-v1.json text eol=lf

@@ -19,3 +19,6 @@ DreamGuard 对照沿用冻结权重、校准57和测试72。固定种子20260701
 TRACES 复用作者两个阶段，K=8、原观察器第32层，使用校准集最大前缀风险选阈值0.8。当前TP36/FP1/TN33/FN2，Recall略低于论文，FPR低30.36个百分点。原评测实现采用自己的SafetyDrift适配。37个测试场景都在训练集出现，35条测试轨迹有训练中相同早期事件前缀。场景多数规则得到97.30% F1。因此需要同场景异标签配对和逐ID论文split核对。详见 [训练资产审计](safepred-policy-v2-traces-audit-20261124.md)。
 
 [DreamGuard 原文与附录](https://arxiv.org/html/2608.05695v1) · [SafePred 作者权重](https://huggingface.co/yurun-chen/SafePred-8B)
+
+
+跨域开发误拦定位：两个潜状态模式的6条安全轨迹均为首步工具 BLOCK 3条、首步文本回复 BLOCK 1条、后续工具 HOLD 2条。即时风险和累计风险两条路径都参与了误报。ATBench 开发集候选中的文本回复为296/875，SafetyDrift 校准集为54/484。该输入差异单独不能解释误报。TRACES 原始日志的 PHIR 为94.74%，MAS 为2.78，论文表2为87.1%和2.00。

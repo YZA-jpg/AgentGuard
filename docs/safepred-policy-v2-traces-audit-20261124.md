@@ -2,6 +2,8 @@
 
 2026-11-24。旧政策、旧模型、原测试72与所有已有结果保留。新正式benchmark尚未启动。
 
+2026-11-25更新：用户已启动正式组。SafetyDrift72完成并核验，v2 F1=8.89%，低于旧政策26.09%，检测有效性未修复；AgentDojo截至12:53完成850/1046，继续运行。见[最新检查快照](safepred-policy-v2-progress-20261125.md)。以下保留11月24日开发验收与启动说明。
+
 短GPU开发验收已完成：`results/safepred-policy-v2-preflight-20261124`退出码0；SafetyDrift4条政策/6个契约、AgentDojo5条政策/8个契约全部准入，含安全放行对照。完整artifact保留在服务器，公开政策及简要准入记录备份于`policies/frozen/safepred-policy-v2-20261124`。本轮正式启动应复用这批已验收政策，不重新抽取。
 
 ## SafePred修复了什么
